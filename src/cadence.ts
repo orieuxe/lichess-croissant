@@ -1,16 +1,16 @@
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
-const CADENCE_MAP_PATH = "cadence-map.json";
+const CADENCE_MAP_PATH = 'cadence-map.json';
 
-export type Category = "classique" | "non-classique";
+export type Category = 'classique' | 'non-classique';
 
 export function loadCadenceMap(): Record<string, Category> {
   if (!existsSync(CADENCE_MAP_PATH)) return {};
-  return JSON.parse(readFileSync(CADENCE_MAP_PATH, "utf8"));
+  return JSON.parse(readFileSync(CADENCE_MAP_PATH, 'utf8'));
 }
 
 export function saveCadenceMap(map: Record<string, Category>): void {
-  writeFileSync(CADENCE_MAP_PATH, JSON.stringify(map, null, 2) + "\n");
+  writeFileSync(CADENCE_MAP_PATH, JSON.stringify(map, null, 2) + '\n');
 }
 
 // ponytail: only reads the base time (before increment/moves-to-go), FIDE-style
@@ -19,7 +19,8 @@ export function saveCadenceMap(map: Record<string, Category>): void {
 export function parseBaseMinutes(cadenceText: string): number | null {
   const m = cadenceText.match(/(\d+)\s*h\s*(\d+)?|(\d+)\s*(?:'|mn|min)/i);
   if (!m) return null;
-  if (m[1] !== undefined) return parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0);
+  if (m[1] !== undefined)
+    return parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0);
   return parseInt(m[3], 10);
 }
 
@@ -31,7 +32,8 @@ export async function classifyCadence(
   if (cadenceText in map) return map[cadenceText];
 
   const baseMinutes = parseBaseMinutes(cadenceText);
-  if (baseMinutes !== null) return baseMinutes >= 60 ? "classique" : "non-classique";
+  if (baseMinutes !== null)
+    return baseMinutes >= 60 ? 'classique' : 'non-classique';
 
   const category = await askCategory(cadenceText);
   map[cadenceText] = category;
