@@ -27,6 +27,7 @@ globalThis.fetch = (async (url: string) =>
 const info = await fetchFiche(
   'https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=69309',
 );
+assert.equal(info.title, '7e Mémorial Aloyzas Kveinys - Master (+1900)');
 assert.equal(info.numRounds, 9);
 assert.equal(info.cadenceText, '1h30/40 - 30\' + [30"]');
 assert.equal(info.startDate, 'samedi 04 juillet 2026');
@@ -38,6 +39,10 @@ assert.equal(
 
 const closedInfo = await fetchFiche(
   'https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=72157',
+);
+assert.equal(
+  closedInfo.title,
+  'Festival de Tournois Classiques d\'Eté 2026 de Lille - Fermé A',
 );
 assert.equal(closedInfo.numRounds, 5);
 assert.equal(closedInfo.cadenceText, '60\' + [30\'\']');

@@ -15,7 +15,18 @@ writeFileSync(
 );
 
 process.chdir(dir);
-const { loadManifest, studiesNotDownloaded } = await import('./lichess.ts');
+const { loadManifest, studiesNotDownloaded, extractChapterId }
+  = await import('./lichess.ts');
+
+assert.equal(
+  extractChapterId('[Site "https://lichess.org/study/abc123/chapXYZ"]'),
+  'chapXYZ',
+);
+assert.equal(
+  extractChapterId('[ChapterURL "https://lichess.org/study/abc123/chapXYZ"]'),
+  'chapXYZ',
+);
+assert.equal(extractChapterId('[Site "https://lichess.org/notastudy"]'), null);
 
 const manifest = loadManifest();
 assert.deepEqual(manifest, { abc123: 'a.pgn' });

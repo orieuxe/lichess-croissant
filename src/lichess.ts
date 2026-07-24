@@ -47,6 +47,36 @@ function extractStudyId(pgn: string): string | null {
   return m ? m[1] : null;
 }
 
+export function extractChapterId(game: string): string | null {
+  const m = game.match(
+    /\[(?:Site|ChapterURL) "https:\/\/lichess\.org\/study\/\w+\/(\w+)/,
+  );
+  return m ? m[1] : null;
+}
+
+// Updates only the tags provided; existing tags not listed are left as-is.
+// Pass an empty value ("") to delete a tag.
+export async function updateChapterTags(
+  studyId: string,
+  chapterId: string,
+  tags: Record<string, string>,
+): Promise<void> {
+  const pgn = Object.entries(tags)
+    .map(([tag, value]) => `[${tag} "${value}"]`)
+    .join('\n');
+  const res = await fetch(`${API}/study/${studyId}/${chapterId}/tags`, {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({ pgn }),
+  });
+  if (!res.ok) {
+    throw new Error(`lichess update chapter tags failed: ${res.status}`);
+  }
+}
+
 export function loadManifest(): Record<string, string> {
   if (!existsSync(MANIFEST_PATH)) {
     return bootstrapManifest();

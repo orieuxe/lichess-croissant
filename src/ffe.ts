@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 
 export interface FicheTournoi {
+  title: string;
   startDate: string;
   endDate: string;
   numRounds: number;
@@ -21,6 +22,7 @@ const UA = { 'User-Agent': 'Mozilla/5.0' };
 export async function fetchFiche(url: string): Promise<FicheTournoi> {
   const html = await (await fetch(url, { headers: UA })).text();
   const $ = cheerio.load(html);
+  const title = $('#ctl00_ContentPlaceHolderMain_LabelNom').text().trim();
   const dates = $('#ctl00_ContentPlaceHolderMain_LabelDates').text().trim();
   const [startDate, endDate] = dates.split(' - ').map(s => s.trim());
   const numRounds = parseInt(
@@ -40,7 +42,7 @@ export async function fetchFiche(url: string): Promise<FicheTournoi> {
     if (action) resultsLinks[action] = absolute;
   });
 
-  return { startDate, endDate, numRounds, cadenceText, resultsLinks };
+  return { title, startDate, endDate, numRounds, cadenceText, resultsLinks };
 }
 
 export interface PlayerRounds {
