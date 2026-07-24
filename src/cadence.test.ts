@@ -7,7 +7,7 @@ process.chdir(mkdtempSync(join(tmpdir(), 'cadence-test-')));
 const { parseBaseMinutes, classifyCadence } = await import('./cadence.ts');
 
 assert.equal(parseBaseMinutes('1h30/40 - 30\' + [30"]'), 90);
-assert.equal(parseBaseMinutes("60' + [30'']"), 60);
+assert.equal(parseBaseMinutes('60\' + [30\'\']'), 60);
 assert.equal(parseBaseMinutes('1h'), 60);
 assert.equal(parseBaseMinutes('25\' + 10"'), 25);
 assert.equal(parseBaseMinutes('garbage'), null);

@@ -1,10 +1,4 @@
-import {
-  readFileSync,
-  writeFileSync,
-  existsSync,
-  readdirSync,
-  unlinkSync,
-} from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { splitGames, getTag } from './pgn.ts';
 import type { Category } from './cadence.ts';
 
@@ -14,16 +8,16 @@ function gameKey(game: string): string {
 
 function lastGameDate(games: string[]): string {
   const dates = games
-    .map((g) => getTag(g, 'Date'))
+    .map(g => getTag(g, 'Date'))
     .filter((d): d is string => !!d && !d.includes('?'))
-    .map((d) => d.replace(/\./g, '-'));
+    .map(d => d.replace(/\./g, '-'));
   return dates.sort().at(-1) ?? new Date().toISOString().slice(0, 10);
 }
 
 function existingMergedFile(category: Category): string | null {
   const prefix = `merged_${category}_`;
   const found = readdirSync('.').find(
-    (f) => f.startsWith(prefix) && f.endsWith('.pgn'),
+    f => f.startsWith(prefix) && f.endsWith('.pgn'),
   );
   return found ?? null;
 }
