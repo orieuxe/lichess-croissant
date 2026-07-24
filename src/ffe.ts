@@ -5,6 +5,7 @@ export interface FicheTournoi {
   endDate: string;
   numRounds: number;
   cadenceText: string;
+  resultsLinks: Record<string, string>;
 }
 
 export interface RoundResult {
@@ -29,7 +30,17 @@ export async function fetchFiche(url: string): Promise<FicheTournoi> {
   const cadenceText = $("#ctl00_ContentPlaceHolderMain_LabelCadence")
     .text()
     .trim();
-  return { startDate, endDate, numRounds, cadenceText };
+
+  const resultsLinks: Record<string, string> = {};
+  $('a[href*="Resultats.aspx"]').each((_, a) => {
+    const href = $(a).attr("href");
+    if (!href) return;
+    const absolute = new URL(href.replace(/&amp;/g, "&"), url).href;
+    const action = new URL(absolute).searchParams.get("Action");
+    if (action) resultsLinks[action] = absolute;
+  });
+
+  return { startDate, endDate, numRounds, cadenceText, resultsLinks };
 }
 
 export interface PlayerRounds {
