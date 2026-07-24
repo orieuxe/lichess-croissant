@@ -3,7 +3,7 @@ import { createInterface } from "node:readline/promises";
 import { listStudies, downloadStudy, loadManifest, saveManifest, studiesNotDownloaded } from "./lichess.ts";
 import { fetchFiche, fetchRounds } from "./ffe.ts";
 import { classifyCadence, type Category } from "./cadence.ts";
-import { splitGames, setTag, getTag } from "./pgn.ts";
+import { splitGames, setTag, getTag, previewMoves } from "./pgn.ts";
 import { mergeCategory } from "./merge.ts";
 
 const LICHESS_USERNAME = "timoruu";
@@ -40,9 +40,14 @@ async function main() {
   saveManifest(manifest);
   console.log(`Téléchargé : downloaded/${filename}`);
 
-  let games = splitGames(readFileSync(`downloaded/${filename}`, "utf8"));
+  const games = splitGames(readFileSync(`downloaded/${filename}`, "utf8"));
 
-  let match: { fiche: Awaited<ReturnType<typeof fetchFiche>>; rounds: Awaited<ReturnType<typeof fetchRounds>>["rounds"] } | null = null;
+  let match: {
+    fiche: Awaited<ReturnType<typeof fetchFiche>>;
+    rounds: Awaited<ReturnType<typeof fetchRounds>>["rounds"];
+    includedIndices: number[];
+  } | null = null;
+
   while (true) {
     const ffeUrl = await ask("Lien fiche FFE (vide = skip) : ");
     if (!ffeUrl.trim()) break;
@@ -57,22 +62,41 @@ async function main() {
     }
 
     const { rounds } = await fetchRounds(fiche.resultsLinks.Ga, FFE_PLAYER_NAME);
-    if (games.length !== fiche.numRounds) {
+
+    let includedIndices = games.map((_, i) => i);
+    if (games.length > fiche.numRounds) {
+      console.log(`\n${games.length} parties téléchargées, ${fiche.numRounds} rondes annoncées — laquelle exclure ?`);
+      games.forEach((g, i) => {
+        const chapter = getTag(g, "ChapterName") ?? getTag(g, "Event") ?? "?";
+        console.log(`  ${i + 1}. ${chapter} — ${previewMoves(g, 12)}`);
+      });
+      const excludeAnswer = await ask("Numéros à exclure (virgule, vide = aucun) : ");
+      const excluded = new Set(
+        excludeAnswer
+          .split(",")
+          .map((s) => parseInt(s.trim(), 10) - 1)
+          .filter((n) => !Number.isNaN(n)),
+      );
+      includedIndices = includedIndices.filter((i) => !excluded.has(i));
+    }
+
+    if (includedIndices.length !== fiche.numRounds) {
       console.warn(
-        `ALERTE: ${games.length} parties téléchargées vs ${fiche.numRounds} rondes annoncées sur la FFE (mauvais lien ? mauvais tournoi ?).`,
+        `ALERTE: ${includedIndices.length} parties retenues vs ${fiche.numRounds} rondes annoncées sur la FFE (mauvais lien ? mauvais tournoi ?).`,
       );
       continue;
     }
 
-    match = { fiche, rounds };
+    match = { fiche, rounds, includedIndices };
     break;
   }
 
   if (match) {
-    const { fiche, rounds } = match;
-    games = games.map((game, i) => {
-      const r = rounds[i];
-      let g = setTag(game, "Round", String(r.round));
+    const { fiche, rounds, includedIndices } = match;
+    includedIndices.forEach((gameIdx, roundIdx) => {
+      const r = rounds[roundIdx];
+      let g = games[gameIdx];
+      g = setTag(g, "Round", String(r.round));
       if (r.color && r.opponentName) {
         const ourSide = r.color === "B" ? "White" : "Black";
         const oppSide = r.color === "B" ? "Black" : "White";
@@ -82,14 +106,14 @@ async function main() {
           g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ""));
         if (!getTag(g, ourSide)) g = setTag(g, ourSide, FFE_PLAYER_NAME);
       }
-      return g;
+      g = setTag(g, "TimeControl", fiche.cadenceText);
+      games[gameIdx] = g;
     });
 
     const category = await classifyCadence(fiche.cadenceText, askCategory);
-    games = games.map((g) => setTag(g, "TimeControl", fiche.cadenceText));
 
     writeFileSync(`downloaded/${filename}`, games.join("\n\n\n") + "\n");
-    const merged = mergeCategory(category, games);
+    const merged = mergeCategory(category, includedIndices.map((i) => games[i]));
     console.log(`Fusionné dans ${merged}`);
   } else {
     console.log("Pas de lien FFE, pas de merge (Round/adversaire/cadence manquants).");
