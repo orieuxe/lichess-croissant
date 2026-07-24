@@ -163,15 +163,6 @@ async function main() {
           ? study.name
           : eventAnswer.trim();
 
-    const originalChapterTitles = new Map<number, string>();
-    for (const gameIdx of includedIndices) {
-      const g = games[gameIdx];
-      originalChapterTitles.set(
-        gameIdx,
-        getTag(g, 'ChapterName') ?? getTag(g, 'Event') ?? '?',
-      );
-    }
-
     for (const [roundIdx, gameIdx] of includedIndices.entries()) {
       const r = rounds[roundIdx];
       let g = games[gameIdx];
@@ -213,10 +204,15 @@ async function main() {
     console.log('\nRécap avant sauvegarde :');
     for (const gameIdx of includedIndices) {
       const g = games[gameIdx];
+      const ourSide = getTag(g, 'White') === our.name ? 'White' : 'Black';
+      const oppSide = ourSide === 'White' ? 'Black' : 'White';
+      const letter = ourSide === 'White' ? 'B' : 'N';
+      const oppName = getTag(g, oppSide) ?? '?';
+      const oppElo = getTag(g, `${oppSide}Elo`) ?? '?';
       console.log(
-        `  Ronde ${getTag(g, 'Round')} — ${originalChapterTitles.get(gameIdx)} — ${getTag(g, 'White')} vs ${getTag(g, 'Black')} (${getTag(g, 'Result')})`,
+        `  ${getTag(g, 'Round')} - ${letter} vs ${oppName} ${oppElo} (${getTag(g, 'Result')})`,
       );
-      console.log(`    ${previewMoves(g, 12)}`);
+      console.log(`    ${previewMoves(g, 24)}`);
     }
     const confirm = await ask('\nSauvegarder (merge + manifest + push lichess) ? [O/n] ');
     if (confirm.trim().toLowerCase().startsWith('n')) {
