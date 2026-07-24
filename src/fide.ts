@@ -50,6 +50,24 @@ export async function getFidePlayer(id: string): Promise<FideCandidate | null> {
   return res.json();
 }
 
+export async function resolveFideById(id: string): Promise<ResolvedFideName | null> {
+  try {
+    const player = await getFidePlayer(id);
+    if (!player) return null;
+    return {
+      name: player.name,
+      title: player.title,
+      fideId: String(player.id),
+      standardElo: player.standard,
+      rapidElo: player.rapid,
+      blitzElo: player.blitz,
+    };
+  }
+  catch {
+    return null;
+  }
+}
+
 function titleCase(s: string): string {
   return s.replace(/[\p{L}]+/gu, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
 }
@@ -102,20 +120,5 @@ export async function resolveFideName(
   const id = (await askFideId(ffeName)).trim();
   if (!id) return { name: normalizeUnmatchedName(ffeName) };
 
-  try {
-    const player = await getFidePlayer(id);
-    return player
-      ? {
-          name: player.name,
-          title: player.title,
-          fideId: String(player.id),
-          standardElo: player.standard,
-          rapidElo: player.rapid,
-          blitzElo: player.blitz,
-        }
-      : { name: normalizeUnmatchedName(ffeName) };
-  }
-  catch {
-    return { name: normalizeUnmatchedName(ffeName) };
-  }
+  return (await resolveFideById(id)) ?? { name: normalizeUnmatchedName(ffeName) };
 }

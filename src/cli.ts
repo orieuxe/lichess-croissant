@@ -23,7 +23,7 @@ import {
   resultFromFfe,
 } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
-import { resolveFideName, getFidePlayer, normalizeUnmatchedName, type ResolvedFideName } from './fide.ts';
+import { resolveFideName, getFidePlayer, resolveFideById, normalizeUnmatchedName, type ResolvedFideName } from './fide.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FIDE_ID = process.env.FIDE_ID;
@@ -68,8 +68,8 @@ async function askOpponentFideId(): Promise<ResolvedFideName> {
   while (true) {
     const id = (await ask('ID FIDE de l\'adversaire (vide si inconnu) : ')).trim();
     if (id) {
-      const player = await getFidePlayer(id);
-      if (player) return { name: player.name, title: player.title, fideId: String(player.id), elo: player.standard };
+      const resolved = await resolveFideById(id);
+      if (resolved) return resolved;
       console.warn(`ID FIDE ${id} introuvable, réessaie.`);
       continue;
     }
@@ -367,15 +367,21 @@ async function main() {
           const manual = await askResult(`${r.round} - ${r.color}/${r.opponentName ?? '?'}`);
           g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
         }
-        let opponent: ResolvedFideName;
-        if (r.opponentName) {
-          if (!opponentNameCache.has(r.opponentName)) {
-            opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
+        // déjà taggé (run précédent, ou saisi à la main sur lichess) — fetch
+        // direct par id, jamais besoin de rechercher/redemander.
+        let opponent: ResolvedFideName | null = null;
+        const existingOppFideId = getTag(g, `${oppSide}FideId`);
+        if (existingOppFideId) opponent = await resolveFideById(existingOppFideId);
+        if (!opponent) {
+          if (r.opponentName) {
+            if (!opponentNameCache.has(r.opponentName)) {
+              opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
+            }
+            opponent = opponentNameCache.get(r.opponentName)!;
           }
-          opponent = opponentNameCache.get(r.opponentName)!;
-        }
-        else {
-          opponent = await askOpponentFideId();
+          else {
+            opponent = await askOpponentFideId();
+          }
         }
         // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
         g = setTag(g, oppSide, opponent.name);
