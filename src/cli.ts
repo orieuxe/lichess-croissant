@@ -163,6 +163,15 @@ async function main() {
           ? study.name
           : eventAnswer.trim();
 
+    const originalChapterTitles = new Map<number, string>();
+    for (const gameIdx of includedIndices) {
+      const g = games[gameIdx];
+      originalChapterTitles.set(
+        gameIdx,
+        getTag(g, 'ChapterName') ?? getTag(g, 'Event') ?? '?',
+      );
+    }
+
     for (const [roundIdx, gameIdx] of includedIndices.entries()) {
       const r = rounds[roundIdx];
       let g = games[gameIdx];
@@ -200,6 +209,21 @@ async function main() {
     }
 
     const category = await classifyCadence(fiche.cadenceText, askCategory);
+
+    console.log('\nRécap avant sauvegarde :');
+    for (const gameIdx of includedIndices) {
+      const g = games[gameIdx];
+      console.log(
+        `  Ronde ${getTag(g, 'Round')} — ${originalChapterTitles.get(gameIdx)} — ${getTag(g, 'White')} vs ${getTag(g, 'Black')} (${getTag(g, 'Result')})`,
+      );
+      console.log(`    ${previewMoves(g, 12)}`);
+    }
+    const confirm = await ask('\nSauvegarder (merge + manifest + push lichess) ? [O/n] ');
+    if (confirm.trim().toLowerCase().startsWith('n')) {
+      console.log('Annulé, rien de sauvegardé.');
+      rl.close();
+      return;
+    }
 
     writeFileSync(`downloaded/${filename}`, games.join('\n\n\n') + '\n');
     const merged = mergeCategory(
