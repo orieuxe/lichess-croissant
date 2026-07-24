@@ -46,6 +46,22 @@ async function askFideId(ffeName: string): Promise<string> {
   );
 }
 
+type RatingKind = 'standardElo' | 'rapidElo' | 'blitzElo';
+
+// mode manuel: pas de fiche FFE donc pas de cadence texte à classifier — on
+// demande direct le format, ce qui donne à la fois la catégorie de merge et
+// quel rating FIDE (standard/rapide/blitz) piocher pour les Elo.
+async function askCadenceKind(): Promise<{ category: Category; ratingKind: RatingKind }> {
+  while (true) {
+    const answer = (await ask('Cadence — [s] standard/classique, [r] rapide, [b] blitz : '))
+      .trim()
+      .toLowerCase();
+    if (answer === 's') return { category: 'classique', ratingKind: 'standardElo' };
+    if (answer === 'r') return { category: 'non-classique', ratingKind: 'rapidElo' };
+    if (answer === 'b') return { category: 'non-classique', ratingKind: 'blitzElo' };
+  }
+}
+
 // mode manuel: pas de nom connu du tout (chapitre pas parsable) — on demande
 // direct l'ID FIDE, ou à défaut le nom en clair. Jamais de placeholder "?".
 async function askOpponentFideId(): Promise<ResolvedFideName> {
@@ -182,6 +198,8 @@ async function main() {
     ownElo: string;
     includedIndices: number[];
   } | null = null;
+  let ratingKind: RatingKind = 'standardElo';
+  let manualCategory: Category | null = null;
 
   while (true) {
     const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel/skip) : ');
@@ -196,6 +214,8 @@ async function main() {
         'Pas de lien FFE — mode manuel (parties non officielles, sans fiche FFE) ? [O/n] ',
       );
       if (manual.trim().toLowerCase().startsWith('n')) break;
+
+      ({ category: manualCategory, ratingKind } = await askCadenceKind());
 
       fiche = {
         title: study.name,
@@ -363,7 +383,8 @@ async function main() {
           g = setTag(g, `${oppSide}Title`, opponent.title);
         if (opponent.fideId && !getTag(g, `${oppSide}FideId`))
           g = setTag(g, `${oppSide}FideId`, opponent.fideId);
-        const oppElo = r.opponentElo?.replace(/\s*F$/, '') || (opponent.elo ? String(opponent.elo) : '');
+        const oppRatingElo = opponent[ratingKind];
+        const oppElo = r.opponentElo?.replace(/\s*F$/, '') || (oppRatingElo ? String(oppRatingElo) : '');
         if (oppElo && !getTag(g, `${oppSide}Elo`))
           g = setTag(g, `${oppSide}Elo`, oppElo);
         g = setTag(g, ourSide, our.name);
@@ -371,7 +392,8 @@ async function main() {
           g = setTag(g, `${ourSide}Title`, our.title);
         if (our.fideId && !getTag(g, `${ourSide}FideId`))
           g = setTag(g, `${ourSide}FideId`, our.fideId);
-        const ownEloTag = ourEloValue || (our.elo ? String(our.elo) : '');
+        const ourRatingElo = our[ratingKind];
+        const ownEloTag = ourEloValue || (ourRatingElo ? String(ourRatingElo) : '');
         if (ownEloTag && !getTag(g, `${ourSide}Elo`))
           g = setTag(g, `${ourSide}Elo`, ownEloTag);
       }
@@ -379,9 +401,7 @@ async function main() {
       games[gameIdx] = g;
     }
 
-    const category = fiche.cadenceText
-      ? await classifyCadence(fiche.cadenceText, askCategory)
-      : await askCategory('(mode manuel, pas de cadence FFE)');
+    const category = manualCategory ?? await classifyCadence(fiche.cadenceText, askCategory);
     console.log(`\nCadence "${fiche.cadenceText}" -> ${category}`);
 
     console.log('\nRécap avant sauvegarde :');

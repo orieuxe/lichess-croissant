@@ -33,7 +33,7 @@ const own = await resolveFideName('ORIEUX Etienne', async () => {
 assert.equal(own.name, 'Orieux, Etienne');
 assert.equal(own.title, undefined, 'no FIDE title yet');
 assert.equal(own.fideId, '45185743');
-assert.equal(own.elo, 2240);
+assert.equal(own.standardElo, 2240);
 
 const skipped = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '');
 assert.equal(skipped.name, 'Test, Nom Improbable Zzzqx Ffe', 'blank id answer still reshapes to "Surname, ..."');
@@ -42,7 +42,7 @@ const viaId = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () =>
 assert.equal(viaId.name, 'Bailet, Pierre', 'resolves via manually given FIDE id');
 assert.equal(viaId.title, 'GM');
 assert.equal(viaId.fideId, '655830');
-assert.equal(viaId.elo, 2410);
+assert.equal(viaId.standardElo, 2410);
 
 const badId = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '999999999999');
 assert.equal(badId.name, 'Test, Nom Improbable Zzzqx Ffe', 'unknown id also reshapes to "Surname, ..."');
