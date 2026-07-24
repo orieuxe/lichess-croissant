@@ -107,9 +107,10 @@ function desiredChapterTitle(g: string, ourName: string): string {
 
 // Auto-commit only the data files this run touched — never src/, so an
 // in-progress code change on the branch can't get swept into a data commit.
-// Push is a separate step (asked after) so a manual pgn tweak can happen
-// between commit and push without racing the auto-push.
-async function commitGameData(filename: string, studyName: string) {
+// Local only — github push and lichess push are a separate, later step (see
+// pushEverywhere) so a manual pgn tweak can slot in before anything external
+// happens.
+function commitGameData(filename: string, studyName: string): boolean {
   try {
     execFileSync('git', [
       'add', '-A', '--',
@@ -118,19 +119,15 @@ async function commitGameData(filename: string, studyName: string) {
     ]);
     execFileSync('git', ['commit', '-m', `feat: add ${studyName} games`]);
     console.log('Commit git créé (données seulement).');
+    return true;
   }
   catch (err) {
     console.warn(`git commit sauté (${(err as Error).message.split('\n')[0]})`);
-    return;
+    return false;
   }
+}
 
-  const push = await ask(
-    'Push github maintenant (n = commit local seulement, tu push toi-même après avoir modifié le pgn si besoin) ? [O/n] ',
-  );
-  if (push.trim().toLowerCase().startsWith('n')) {
-    console.log('Pas de push — pense à le faire toi-même après tes modifs.');
-    return;
-  }
+function pushGithub() {
   try {
     execFileSync('git', ['push']);
     console.log('Poussé sur github.');
@@ -420,7 +417,7 @@ async function main() {
       );
       console.log(`    ${previewMoves(g, 24)}`);
     }
-    const confirm = await ask('\nSauvegarder (merge + manifest + push lichess + commit github) ? [O/n] ');
+    const confirm = await ask('\nSauvegarder (pgn + merge + manifest + commit local) ? [O/n] ');
     if (confirm.trim().toLowerCase().startsWith('n')) {
       console.log('Annulé, rien de sauvegardé.');
       console.log(`Study lichess : https://lichess.org/study/${study.id}`);
@@ -435,57 +432,66 @@ async function main() {
     );
     console.log(`Fusionné dans ${merged}`);
 
-    console.log('\nMise à jour des chapitres sur lichess...');
-    for (const gameIdx of includedIndices) {
-      const g = games[gameIdx];
-      const chapterId = extractChapterId(g);
-      if (!chapterId) {
-        console.warn(`  chapitre introuvable pour la partie ${gameIdx + 1}, skip`);
-        continue;
-      }
-      // ponytail: lichess's chapter-tags endpoint only accepts a fixed tag
-      // whitelist (see lila's StudyPgnTags.scala) — UTCDate/UTCTime/
-      // ChapterName/EventURL aren't in it and 400 if sent, even to delete.
-      const tags: Record<string, string> = {};
-      for (const tag of [
-        'Round',
-        'Event',
-        'Result',
-        'White',
-        'Black',
-        'WhiteElo',
-        'BlackElo',
-        'WhiteTitle',
-        'BlackTitle',
-        'WhiteFideId',
-        'BlackFideId',
-        'TimeControl',
-      ]) {
-        const value = getTag(g, tag);
-        if (value) tags[tag] = value;
-      }
-      // EventURL isn't a tag lichess accepts — use Event for the FFE link directly
-      // (skip in mode manuel, il n'y a pas de lien).
-      if (ffeUrl) tags.Event = ffeUrl;
-      const title = desiredChapterTitle(g, our.name);
-      try {
-        await updateChapterTags(study.id, chapterId, tags);
-        console.log(`  ${chapterId} (${title}) mis à jour`);
-      }
-      catch (err) {
-        console.warn(`  ${chapterId} (${title}) échec: ${(err as Error).message}`);
-      }
-    }
-    console.log(
-      '(le titre du chapitre lui-même — "B/N vs Nom, Prénom elo" — ne peut pas être renommé via l\'API publique lichess, à faire à la main si besoin)',
-    );
-
     // ponytail: manifest only written once the flow reaches a deliberate
     // end (merged) — not right after download — so an aborted/crashed run
     // never leaves a study wrongly marked as done.
     manifest[study.id] = filename;
     saveManifest(manifest);
-    await commitGameData(filename, study.name);
+    const committed = commitGameData(filename, study.name);
+
+    const push = await ask(
+      '\nPush maintenant (lichess + github) ? (n = tout reste local, modifie le pgn puis push toi-même) [O/n] ',
+    );
+    if (push.trim().toLowerCase().startsWith('n')) {
+      console.log('Rien poussé — pense à push toi-même (lichess + github) après tes modifs.');
+    }
+    else {
+      console.log('\nMise à jour des chapitres sur lichess...');
+      for (const gameIdx of includedIndices) {
+        const g = games[gameIdx];
+        const chapterId = extractChapterId(g);
+        if (!chapterId) {
+          console.warn(`  chapitre introuvable pour la partie ${gameIdx + 1}, skip`);
+          continue;
+        }
+        // ponytail: lichess's chapter-tags endpoint only accepts a fixed tag
+        // whitelist (see lila's StudyPgnTags.scala) — UTCDate/UTCTime/
+        // ChapterName/EventURL aren't in it and 400 if sent, even to delete.
+        const tags: Record<string, string> = {};
+        for (const tag of [
+          'Round',
+          'Event',
+          'Result',
+          'White',
+          'Black',
+          'WhiteElo',
+          'BlackElo',
+          'WhiteTitle',
+          'BlackTitle',
+          'WhiteFideId',
+          'BlackFideId',
+          'TimeControl',
+        ]) {
+          const value = getTag(g, tag);
+          if (value) tags[tag] = value;
+        }
+        // EventURL isn't a tag lichess accepts — use Event for the FFE link directly
+        // (skip in mode manuel, il n'y a pas de lien).
+        if (ffeUrl) tags.Event = ffeUrl;
+        const title = desiredChapterTitle(g, our.name);
+        try {
+          await updateChapterTags(study.id, chapterId, tags);
+          console.log(`  ${chapterId} (${title}) mis à jour`);
+        }
+        catch (err) {
+          console.warn(`  ${chapterId} (${title}) échec: ${(err as Error).message}`);
+        }
+      }
+      console.log(
+        '(le titre du chapitre lui-même — "B/N vs Nom, Prénom elo" — ne peut pas être renommé via l\'API publique lichess, à faire à la main si besoin)',
+      );
+      if (committed) pushGithub();
+    }
   }
   else {
     console.log(
