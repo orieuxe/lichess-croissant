@@ -22,10 +22,11 @@ import {
   resultFromFfe,
 } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
-import { resolveFideName, type ResolvedFideName } from './fide.ts';
+import { resolveFideName, getFidePlayer, type ResolvedFideName } from './fide.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FFE_PLAYER_NAME = process.env.FFE_PLAYER_NAME ?? 'ORIEUX Etienne';
+const FIDE_ID = process.env.FIDE_ID;
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q: string) => rl.question(q);
@@ -143,7 +144,11 @@ async function main() {
 
   if (match) {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices } = match;
-    const our = await resolveFideName(FFE_PLAYER_NAME, askFideId);
+    const our: ResolvedFideName = FIDE_ID
+      ? await getFidePlayer(FIDE_ID).then(p =>
+          p ? { name: p.name, title: p.title } : { name: FFE_PLAYER_NAME },
+        )
+      : await resolveFideName(FFE_PLAYER_NAME, askFideId);
     const ourEloValue = ownElo.replace(/\s*F$/, '');
     const opponentNameCache = new Map<string, ResolvedFideName>();
 
