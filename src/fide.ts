@@ -2,6 +2,12 @@ export interface FideCandidate {
   name: string;
   federation: string;
   standard?: number;
+  title?: string;
+}
+
+export interface ResolvedFideName {
+  name: string;
+  title?: string;
 }
 
 export async function searchFidePlayers(query: string): Promise<FideCandidate[]> {
@@ -25,10 +31,10 @@ function normalize(name: string): string {
 // ponytail: exact token-set match only (surname+firstname must match exactly,
 // order/comma/accents ignored) — ambiguous or missing matches return null,
 // caller falls back to the raw FFE name rather than guess.
-export function matchFideName(ffeName: string, candidates: FideCandidate[]): string | null {
+export function matchFideName(ffeName: string, candidates: FideCandidate[]): FideCandidate | null {
   const target = normalize(ffeName);
   const matches = candidates.filter(c => normalize(c.name) === target);
-  return matches.length === 1 ? matches[0].name : null;
+  return matches.length === 1 ? matches[0] : null;
 }
 
 export async function getFidePlayer(id: string): Promise<FideCandidate | null> {
@@ -42,24 +48,24 @@ export async function getFidePlayer(id: string): Promise<FideCandidate | null> {
 export async function resolveFideName(
   ffeName: string,
   askFideId: (ffeName: string) => Promise<string>,
-): Promise<string> {
+): Promise<ResolvedFideName> {
   try {
     const candidates = await searchFidePlayers(ffeName);
     const matched = matchFideName(ffeName, candidates);
-    if (matched) return matched;
+    if (matched) return { name: matched.name, title: matched.title };
   }
   catch {
     // network hiccup: fall through to asking for a manual FIDE id
   }
 
   const id = (await askFideId(ffeName)).trim();
-  if (!id) return ffeName;
+  if (!id) return { name: ffeName };
 
   try {
     const player = await getFidePlayer(id);
-    return player?.name ?? ffeName;
+    return player ? { name: player.name, title: player.title } : { name: ffeName };
   }
   catch {
-    return ffeName;
+    return { name: ffeName };
   }
 }
