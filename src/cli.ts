@@ -337,12 +337,14 @@ async function main() {
     const opponentNameCache = new Map<string, ResolvedFideName>();
 
     const eventAnswer = await ask(
-      `Event (vide = titre FFE "${fiche.title}", "s" = nom study "${study.name}", ou texte libre) : `,
+      ffeUrl
+        ? `Event (vide = titre FFE "${fiche.title}", "s" = nom study "${study.name}", ou texte libre) : `
+        : `Event (vide = "${fiche.title}", ou texte libre) : `,
     );
     const eventValue
       = eventAnswer.trim() === ''
         ? fiche.title
-        : eventAnswer.trim().toLowerCase() === 's'
+        : ffeUrl && eventAnswer.trim().toLowerCase() === 's'
           ? study.name
           : eventAnswer.trim();
 
