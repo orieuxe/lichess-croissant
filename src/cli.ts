@@ -20,7 +20,7 @@ import {
   resultFromFfe,
 } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
-import { resolveFideName } from './fide.ts';
+import { resolveFideName, type ResolvedFideName } from './fide.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FFE_PLAYER_NAME = process.env.FFE_PLAYER_NAME ?? 'ORIEUX Etienne';
@@ -125,9 +125,9 @@ async function main() {
 
   if (match) {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices } = match;
-    const ourName = await resolveFideName(FFE_PLAYER_NAME, askFideId);
+    const our = await resolveFideName(FFE_PLAYER_NAME, askFideId);
     const ourEloValue = ownElo.replace(/\s*F$/, '');
-    const opponentNameCache = new Map<string, string>();
+    const opponentNameCache = new Map<string, ResolvedFideName>();
 
     const eventAnswer = await ask(
       `Event (vide = titre FFE "${fiche.title}", "s" = nom study "${study.name}", ou texte libre) : `,
@@ -159,11 +159,15 @@ async function main() {
         if (!opponentNameCache.has(r.opponentName)) {
           opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
         }
-        const opponentName = opponentNameCache.get(r.opponentName)!;
-        if (!getTag(g, oppSide)) g = setTag(g, oppSide, opponentName);
+        const opponent = opponentNameCache.get(r.opponentName)!;
+        if (!getTag(g, oppSide)) g = setTag(g, oppSide, opponent.name);
+        if (opponent.title && !getTag(g, `${oppSide}Title`))
+          g = setTag(g, `${oppSide}Title`, opponent.title);
         if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
           g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ''));
-        if (!getTag(g, ourSide)) g = setTag(g, ourSide, ourName);
+        if (!getTag(g, ourSide)) g = setTag(g, ourSide, our.name);
+        if (our.title && !getTag(g, `${ourSide}Title`))
+          g = setTag(g, `${ourSide}Title`, our.title);
         if (!getTag(g, `${ourSide}Elo`))
           g = setTag(g, `${ourSide}Elo`, ourEloValue);
       }
@@ -188,8 +192,22 @@ async function main() {
         console.warn(`  chapitre introuvable pour la partie ${gameIdx + 1}, skip`);
         continue;
       }
-      const tags: Record<string, string> = { UTCDate: '', UTCTime: '', ChapterName: '' };
-      for (const tag of ['Round', 'Event', 'EventURL', 'Result', 'White', 'Black', 'WhiteElo', 'BlackElo', 'TimeControl']) {
+      // ponytail: lichess's chapter-tags endpoint only accepts a fixed tag
+      // whitelist (see lila's StudyPgnTags.scala) — UTCDate/UTCTime/
+      // ChapterName/EventURL aren't in it and 400 if sent, even to delete.
+      const tags: Record<string, string> = {};
+      for (const tag of [
+        'Round',
+        'Event',
+        'Result',
+        'White',
+        'Black',
+        'WhiteElo',
+        'BlackElo',
+        'WhiteTitle',
+        'BlackTitle',
+        'TimeControl',
+      ]) {
         const value = getTag(g, tag);
         if (value) tags[tag] = value;
       }
