@@ -115,13 +115,17 @@ export async function fetchRounds(
 // ponytail: titles ("f", "g", "m"...) show up as a lowercase word glued onto
 // the name on these pages instead of their own column — dropping any
 // all-lowercase token strips them without a title whitelist to maintain.
-function normalizeLooseName(name: string): string {
+function stripTitle(name: string): string {
   return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
     .split(/\s+/)
     .filter(tok => !/^[a-z]+$/.test(tok))
-    .join(' ')
+    .join(' ');
+}
+
+function normalizeLooseName(name: string): string {
+  return stripTitle(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .split(/\s+/)
     .filter(Boolean)
@@ -155,7 +159,7 @@ export async function fetchClosedRounds(
     const cells = $berger(tr).children('td').toArray();
     if (cells.length < 4) return;
     const name = $berger(cells[1]).text().trim();
-    const elo = $berger(cells[3]).text().replace(/ /g, ' ').trim();
+    const elo = $berger(cells[3]).text().replace(/\u00A0/g, ' ').trim();
     if (name && elo) eloByName.set(normalizeLooseName(name), elo);
   });
 
@@ -175,14 +179,14 @@ export async function fetchClosedRounds(
     const cells = el.children('td').toArray();
     if (cells.length !== 3 || !currentRound) return;
     const whiteName = $pairing(cells[0]).text().trim();
-    const resultText = $pairing(cells[1]).text().replace(/ /g, ' ').trim();
+    const resultText = $pairing(cells[1]).text().replace(/\u00A0/g, ' ').trim();
     const blackName = $pairing(cells[2]).text().trim();
 
     const isWhite = normalizeLooseName(whiteName) === target;
     const isBlack = normalizeLooseName(blackName) === target;
     if (!isWhite && !isBlack) return;
 
-    const opponentName = isWhite ? blackName : whiteName;
+    const opponentName = stripTitle(isWhite ? blackName : whiteName).trim();
     rounds.push({
       round: currentRound,
       color: isWhite ? 'B' : 'N',
