@@ -73,7 +73,8 @@ export async function updateChapterTags(
     body: new URLSearchParams({ pgn }),
   });
   if (!res.ok) {
-    throw new Error(`lichess update chapter tags failed: ${res.status}`);
+    const body = await res.text();
+    throw new Error(`lichess update chapter tags failed: ${res.status} ${body}`);
   }
 }
 
