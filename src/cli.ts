@@ -23,7 +23,7 @@ import {
   resultFromFfe,
 } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
-import { resolveFideName, getFidePlayer, type ResolvedFideName } from './fide.ts';
+import { resolveFideName, getFidePlayer, normalizeUnmatchedName, type ResolvedFideName } from './fide.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FIDE_ID = process.env.FIDE_ID;
@@ -47,26 +47,35 @@ async function askFideId(ffeName: string): Promise<string> {
 }
 
 // mode manuel: pas de nom connu du tout (chapitre pas parsable) — on demande
-// direct l'ID FIDE plutôt qu'un nom à chercher.
+// direct l'ID FIDE, ou à défaut le nom en clair. Jamais de placeholder "?".
 async function askOpponentFideId(): Promise<ResolvedFideName> {
-  const id = (await ask('ID FIDE de l\'adversaire (vide = inconnu) : ')).trim();
-  if (!id) return { name: '?' };
-  const player = await getFidePlayer(id);
-  return player ? { name: player.name, title: player.title, fideId: String(player.id) } : { name: '?' };
+  while (true) {
+    const id = (await ask('ID FIDE de l\'adversaire (vide si inconnu) : ')).trim();
+    if (id) {
+      const player = await getFidePlayer(id);
+      if (player) return { name: player.name, title: player.title, fideId: String(player.id) };
+      console.warn(`ID FIDE ${id} introuvable, réessaie.`);
+      continue;
+    }
+    const name = (await ask('Nom de l\'adversaire (obligatoire) : ')).trim();
+    if (name) return { name: normalizeUnmatchedName(name) };
+  }
 }
 
 // FFE round-robin pairing pages show "X - X" until the organizer enters the
 // result by hand, even for games already finished/relayed on lichess — so
-// fetchClosedRounds returns result: null and Result stays unset/"*".
-async function askResult(title: string): Promise<'+' | '=' | '-' | null> {
-  const answer = await ask(
-    `Résultat FFE pas encore publié pour ${title} — [1] gagné, [2] perdu, [n] nul, vide = laisser "*" : `,
-  );
-  const choice = answer.trim().toLowerCase();
-  if (choice === '1') return '+';
-  if (choice === '2') return '-';
-  if (choice === 'n') return '=';
-  return null;
+// fetchClosedRounds returns result: null and Result stays unset/"*". On
+// force un choix — jamais de "*" qui traîne.
+async function askResult(title: string): Promise<'+' | '=' | '-'> {
+  while (true) {
+    const answer = await ask(
+      `Résultat FFE pas encore publié pour ${title} — [1] gagné, [0] perdu, [/] nul : `,
+    );
+    const choice = answer.trim();
+    if (choice === '1') return '+';
+    if (choice === '0') return '-';
+    if (choice === '/') return '=';
+  }
 }
 
 // "B/N vs Nom, Prénom elo" — the chapter title convention, used both in the
@@ -321,7 +330,7 @@ async function main() {
         }
         else if (!currentResult || currentResult === '*') {
           const manual = await askResult(`${r.round} - ${r.color}/${r.opponentName ?? '?'}`);
-          if (manual) g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
+          g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
         }
         let opponent: ResolvedFideName;
         if (r.opponentName) {
