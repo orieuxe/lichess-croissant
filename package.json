@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node --env-file=.env src/cli.ts",
-    "test": "node src/pgn.test.ts && node src/ffe.test.ts && node src/lichess.test.ts && node src/merge.test.ts"
+    "test": "node src/pgn.test.ts && node src/ffe.test.ts && node src/lichess.test.ts && node src/merge.test.ts && node src/cadence.test.ts"
   },
   "dependencies": {
     "cheerio": "^1.0.0"
