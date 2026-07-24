@@ -229,6 +229,10 @@ async function main() {
         const value = getTag(g, tag);
         if (value) tags[tag] = value;
       }
+      // EventURL isn't a tag lichess accepts — fold the FFE link into Event instead.
+      if (tags.Event) {
+        tags.Event = `${tags.Event} — ${ffeUrl}`;
+      }
       try {
         await updateChapterTags(study.id, chapterId, tags);
         console.log(`  ${chapterId} mis à jour`);
