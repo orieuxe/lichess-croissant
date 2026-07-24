@@ -44,8 +44,6 @@ async function main() {
   if (!study) throw new Error('choix invalide');
 
   const filename = await downloadStudy(study.id);
-  manifest[study.id] = filename;
-  saveManifest(manifest);
   console.log(`Téléchargé : downloaded/${filename}`);
 
   const games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
@@ -138,6 +136,12 @@ async function main() {
       'Pas de lien FFE, pas de merge (Round/adversaire/cadence manquants).',
     );
   }
+
+  // ponytail: manifest only written once the flow reaches a deliberate
+  // end (merged, or explicitly skipped) — not right after download — so an
+  // aborted/crashed run never leaves a study wrongly marked as done.
+  manifest[study.id] = filename;
+  saveManifest(manifest);
 
   rl.close();
 }
