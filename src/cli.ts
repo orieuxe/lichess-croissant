@@ -11,7 +11,7 @@ import {
   loadIgnored,
   ignoreStudy,
 } from './lichess.ts';
-import { fetchFiche, fetchRounds } from './ffe.ts';
+import { fetchFiche, fetchRounds, fetchClosedRounds } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
 import {
   splitGames,
@@ -115,17 +115,26 @@ async function main() {
 
     const fiche = await fetchFiche(ffeUrl);
 
-    if (!fiche.resultsLinks.Ga) {
+    let ownElo: string;
+    let rounds: Awaited<ReturnType<typeof fetchRounds>>['rounds'];
+    if (fiche.resultsLinks.Ga) {
+      ({ ownElo, rounds } = await fetchRounds(fiche.resultsLinks.Ga, ffeMatchName));
+    }
+    else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
+      // closed/round-robin tournament: no Grille Américaine, same data lives
+      // across the Pairing (round-by-round) and Berger (name→Elo) pages.
+      ({ ownElo, rounds } = await fetchClosedRounds(
+        fiche.resultsLinks.Pairing,
+        fiche.resultsLinks.Berger,
+        ffeMatchName,
+      ));
+    }
+    else {
       console.warn(
-        `ALERTE: pas de "Grille Américaine" pour ce tournoi (probablement fermé/round-robin, formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
+        `ALERTE: pas de "Grille Américaine" ni de "Pairing"+"Berger" pour ce tournoi (formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
       );
       continue;
     }
-
-    const { ownElo, rounds } = await fetchRounds(
-      fiche.resultsLinks.Ga,
-      ffeMatchName,
-    );
 
     let includedIndices = games.map((_, i) => i);
     if (games.length > fiche.numRounds) {

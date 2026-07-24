@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fetchFiche, fetchRounds } from './ffe.ts';
+import { fetchFiche, fetchRounds, fetchClosedRounds } from './ffe.ts';
 
 const fiche = readFileSync(
   new URL('./fixtures/ffe_fiche.html', import.meta.url),
@@ -14,14 +14,26 @@ const resultats = readFileSync(
   new URL('./fixtures/ffe_resultats.html', import.meta.url),
   'utf8',
 );
+const closedPairing = readFileSync(
+  new URL('./fixtures/ffe_closed_pairing.html', import.meta.url),
+  'utf8',
+);
+const closedBerger = readFileSync(
+  new URL('./fixtures/ffe_closed_berger.html', import.meta.url),
+  'utf8',
+);
 
 globalThis.fetch = (async (url: string) =>
   new Response(
-    url.includes('Ref=72157')
-      ? ficheClosed
-      : url.includes('FicheTournoi')
-        ? fiche
-        : resultats,
+    url.includes('Action=Pairing')
+      ? closedPairing
+      : url.includes('Action=Berger')
+        ? closedBerger
+        : url.includes('Ref=72157')
+          ? ficheClosed
+          : url.includes('FicheTournoi')
+            ? fiche
+            : resultats,
   )) as typeof fetch;
 
 const info = await fetchFiche(
@@ -73,4 +85,22 @@ for (const r of rounds) {
   assert.ok(r.opponentElo, `round ${r.round} missing opponent elo`);
 }
 
-console.log('ffe.test.ts OK', rounds);
+const closed = await fetchClosedRounds(
+  'https://x/Resultats.aspx?Action=Pairing',
+  'https://x/Resultats.aspx?Action=Berger',
+  'Etienne ORIEUX',
+);
+assert.equal(closed.ownElo, '2272 F');
+assert.equal(closed.rounds.length, 5);
+assert.deepEqual(
+  closed.rounds.map(r => [r.round, r.color, r.result, r.opponentName, r.opponentElo]),
+  [
+    [1, 'N', null, 'Samuel DUBUISSON', '2173 F'],
+    [2, 'N', null, 'Valentin BORNHOFEN', '2164 F'],
+    [3, 'B', '-', 'Antoine LEMONNIER', '2127 F'],
+    [4, 'N', null, 'Arman SARKISIAN', '2163 F'],
+    [5, 'B', '-', 'Hillel TOLEDO', '2301 F'],
+  ],
+);
+
+console.log('ffe.test.ts OK', rounds, closed.rounds);

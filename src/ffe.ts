@@ -111,3 +111,91 @@ export async function fetchRounds(
 
   return { ownElo: own.cells[3], rounds };
 }
+
+// ponytail: titles ("f", "g", "m"...) show up as a lowercase word glued onto
+// the name on these pages instead of their own column — dropping any
+// all-lowercase token strips them without a title whitelist to maintain.
+function stripTitle(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(tok => !/^[a-z]+$/.test(tok))
+    .join(' ');
+}
+
+function normalizeLooseName(name: string): string {
+  return stripTitle(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
+function parseClosedResult(raw: string, wasWhite: boolean): '+' | '=' | '-' | null {
+  const m = raw.match(/^(X|\d|½)\s*-\s*(X|\d|½)$/);
+  if (!m || m[1] === 'X') return null;
+  const [whiteScore, blackScore] = [m[1], m[2]];
+  const ourScore = wasWhite ? whiteScore : blackScore;
+  if (ourScore === '½') return '=';
+  const oppScore = wasWhite ? blackScore : whiteScore;
+  return ourScore > oppScore ? '+' : '-';
+}
+
+// Closed/round-robin tournaments have no "Grille Américaine" — same round
+// data lives across two simpler pages instead: Action=Pairing (round-by-round
+// White/Black pairs + result) and Action=Berger (player list with Elo, used
+// here only for the name→Elo lookup, not the cross-table itself).
+export async function fetchClosedRounds(
+  pairingUrl: string,
+  bergerUrl: string,
+  playerFullName: string,
+): Promise<PlayerRounds> {
+  const bergerHtml = await (await fetch(bergerUrl, { headers: UA })).text();
+  const $berger = cheerio.load(bergerHtml);
+  const eloByName = new Map<string, string>();
+  $berger('tr.papi_liste_c').each((_, tr) => {
+    const cells = $berger(tr).children('td').toArray();
+    if (cells.length < 4) return;
+    const name = $berger(cells[1]).text().trim();
+    const elo = $berger(cells[3]).text().replace(/\u00A0/g, ' ').trim();
+    if (name && elo) eloByName.set(normalizeLooseName(name), elo);
+  });
+
+  const pairingHtml = await (await fetch(pairingUrl, { headers: UA })).text();
+  const $pairing = cheerio.load(pairingHtml);
+  const target = normalizeLooseName(playerFullName);
+
+  const rounds: RoundResult[] = [];
+  let currentRound = 0;
+  $pairing('tr.papi_liste_t, tr.papi_liste_c').each((_, tr) => {
+    const el = $pairing(tr);
+    if (el.hasClass('papi_liste_t')) {
+      const m = el.text().match(/RONDE\s+(\d+)/i);
+      if (m) currentRound = parseInt(m[1], 10);
+      return;
+    }
+    const cells = el.children('td').toArray();
+    if (cells.length !== 3 || !currentRound) return;
+    const whiteName = $pairing(cells[0]).text().trim();
+    const resultText = $pairing(cells[1]).text().replace(/\u00A0/g, ' ').trim();
+    const blackName = $pairing(cells[2]).text().trim();
+
+    const isWhite = normalizeLooseName(whiteName) === target;
+    const isBlack = normalizeLooseName(blackName) === target;
+    if (!isWhite && !isBlack) return;
+
+    const opponentName = stripTitle(isWhite ? blackName : whiteName).trim();
+    rounds.push({
+      round: currentRound,
+      color: isWhite ? 'B' : 'N',
+      result: parseClosedResult(resultText, isWhite),
+      opponentName,
+      opponentElo: eloByName.get(normalizeLooseName(opponentName)) ?? null,
+    });
+  });
+
+  rounds.sort((a, b) => a.round - b.round);
+  return { ownElo: eloByName.get(target) ?? '', rounds };
+}
