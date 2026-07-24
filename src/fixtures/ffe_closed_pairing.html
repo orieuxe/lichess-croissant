@@ -1,0 +1,202 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" >
+<head id="ctl00_MasterHeader"><meta http-equiv="content-type" content="application/xhtml+xml; charset=utf-8" /><meta name="keywords" /><meta name="description" /><title>
+	F&eacute;d&eacute;ration Fran&ccedil;aise des &Eacute;checs
+</title><link type="text/css" rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,300,400,600" /><link href="https://fonts.googleapis.com/css?family=Oswald:300,400,700" rel="stylesheet" type="text/css" /><link type="text/css" rel="stylesheet" href="ffe.css?version=6" /><link type="text/css" rel="stylesheet" href="old.css?version=1" /><link rel="shortcut icon" type="image/x-icon" href="images/FFE-favicon.png" />
+  <script type="text/javascript">
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-71022811-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+  <script defer src="https://analytics.ffechecs.fr/script.js" data-website-id="1f57de5d-0056-40f7-b8e4-feb76fa821db"></script>
+
+  <script type="text/javascript">
+    window.$crisp=[];window.CRISP_WEBSITE_ID="47d40bfc-b081-40e5-87cd-d652c585f3c8";(function(){d=document;s=d.createElement("script");s.src="https://client.crisp.chat/l.js";s.async=1;d.getElementsByTagName("head")[0].appendChild(s);})();
+  </script>
+
+</head>
+<body>
+<div id="menu-haut">
+  <a href="Plan.aspx">Plan du site</a> &nbsp;|&nbsp;
+  <a href="Default.aspx?Cat=50">Contact</a> &nbsp;|&nbsp;
+  <a href="Revues.aspx">Publications</a> &nbsp;|&nbsp;
+  <a href="Connect.aspx">Mon Compte</a> &nbsp;|&nbsp;
+  <a href="http://clubs.echecs.asso.fr">Gérer son Club</a> &nbsp;|&nbsp;
+  <a href="http://admin.echecs.asso.fr">Directeurs de Groupes</a> &nbsp;|&nbsp;
+  <a href="Print.aspx" id="ctl00_LinkPrint">Imprimer</a>
+</div>  
+<div id="ctl00_divheader">
+  <div id="header-search">
+    <form class="form-search" method=post name=FormJoueur action="ListeJoueurs.aspx?Action=FFE">
+      <label class="label-search">Rechercher un joueur</label>
+      <input class=input-search type="text" size="12" name="JoueurNom" value="" />
+      <input class=input-search type="submit" value="OK" />
+    </form>
+    <form class="form-search" method=post name=FormClub action="ListeClubs.aspx?Action=CLUB">
+      <label class=label-search>Rechercher un club</label>
+      <input class=input-search type="text" name="ClubNom" size="12" value="" />
+      <input class=input-search type="submit" value="OK" />&nbsp;&nbsp;
+    </form>
+    <form class="form-search" method=post name=FormActu action="Default.aspx">
+      <label class=label-search>Rechercher dans le site</label>
+      <input class=input-search type="text" name="ActuFiltre" size="12" value="" />
+      <input class=input-search type="submit" value="OK" />&nbsp;&nbsp;
+    </form>
+      <a href="https://www.facebook.com/ffechecs?fref=ts" target=_blank><img src=images/facebook.png /></a>&nbsp;&nbsp;
+      <a href="https://twitter.com/ffechecs" target=_blank><img src=images/twitter.png /></a>
+  </div>
+  <div id="bandeau">
+    <img src="images/bandeau-ffe.png" alt="ffe" title="ffe" />
+  </div>
+<!-- end #bandeau -->
+  <ul id="nav"><li class="current"><a href="Default.aspx">Accueil</a></li><li><a href="#">Découvrir</a><ul><li><a target=_blank href="http://echecs.asso.fr/Actu.aspx?Ref=13926">Règles du Jeu</a></li><li><a target=_blank href="http://echecs.asso.fr/Actu.aspx?Ref=13927">Progresser aux échecs</a></li><li><a href="Revues.aspx">Publications</a></li><li><a href="Default.aspx?Cat=41">Art, Culture et Histoire</a></li><li><a target=_blank href="https://www.flickr.com/photos/196251999@N08/albums/with/72177720301409158">Albums photos</a></li><li><a target=_blank href="https://www.youtube.com/channel/UCn6wdVs-gSmZBJXSAWPzf7Q/videos">Vidéos</a></li></ul></li><li><a href="#">FFE</a><ul><li><a href="Default.aspx?Cat=12">FFE - Présentation</a></li><li><a href="Ligues.aspx">Ligues</a></li><li><a href="Comites.aspx">Comités</a></li><li><a href="Clubs.aspx">Clubs</a></li><li><a href="Default.aspx?Cat=14">Licences</a></li><li><a href="Joueurs.aspx">Membres</a></li><li><a href="Default.aspx?Cat=55">Les effectifs de la F.F.E.</a></li><li><a href="Default.aspx?Cat=13">Siège fédéral</a></li><li><a href="Default.aspx?Cat=35">Commissions-Directions</a></li><li><a href="Default.aspx?Cat=42">Infos fédérales</a></li><li><a href="Default.aspx?Cat=50">Contacts</a></li><li><a target=_blank href="https://www.echecs.asso.fr/Default.aspx?Cat=76">Direction Technique Nationale</a></li></ul></li><li><a href="#">Compétitions</a><ul><li><a href="Calendrier.aspx">Calendrier</a></li><li><a href="Equipes.aspx">Par équipes</a></li><li><a href="Tournois.aspx">Tournois homologués</a></li><li><a href="Default.aspx?Cat=21">Vos opens</a></li><li><a href="Default.aspx?Cat=16">Ch. France Jeunes</a></li><li><a href="Default.aspx?Cat=15">Ch. France</a></li><li><a href="Default.aspx?Cat=75">Ch France Rapide des Clubs</a></li><li><a href="Default.aspx?Cat=58">Elo Rapide FFE </a></li><li><a target=_blank href="https://echecs.asso.fr/Default.aspx?Cat=77">Internationaux de France Rapide & Blitz</a></li></ul></li><li><a href="#">Secteurs</a><ul><li><a href="Default.aspx?Cat=8">Haut niveau et titrés</a></li><li><a href="Default.aspx?Cat=7">Mixité</a></li><li><a href="Default.aspx?Cat=66">Scolaires</a></li><li><a target=_blank href="https://ssh.ffechecs.fr/">Santé Social Handicap</a></li><li><a href=" Default.aspx?Cat=68">International</a></li><li><a target=_blank href="https://dna.ffechecs.fr/">Arbitrage</a></li><li><a href="Default.aspx?Cat=9">Discipline</a></li><li><a target=_blank href="http://echecs.asso.fr/Default.aspx?Cat=72">Prévention des violences</a></li><li><a href="Default.aspx?Cat=23">Vos Stages</a></li><li><a target=_blank href="https://classechecs.ffechecs.fr/">Class’Échecs</a></li><li><a href="Default.aspx?Cat=74">Fair-Play</a></li></ul></li><li><a href="#">Documents</a><ul><li><a href="Default.aspx?Cat=17">Règlements</a></li><li><a href="Default.aspx?Cat=20">Comptes rendus</a></li><li><a href="Default.aspx?Cat=26">Documents Clubs</a></li><li><a href="Default.aspx?Cat=46">Ressources pédagogiques</a></li><li><a target=_blank href="http://echecs.asso.fr/Actu.aspx?Ref=12999">Abonnement Echec & Mat Junior</a></li><li><a target=_blank href="http://www.echecs.asso.fr/Default.aspx?Cat=61">Masterclasses en replay</a></li></ul></li><li><a href="#">Développement</a><ul><li><a href="Default.aspx?Cat=6">Formation</a></li><li><a href="Default.aspx?Cat=39">Nouveaux Publics</a></li><li><a href="Default.aspx?Cat=2">Annonces Emploi</a></li><li><a href="Default.aspx?Cat=24">Annonces Clubs</a></li><li><a target=_blank href="http://www.echecs.asso.fr/Default.aspx?Cat=57">Protection judiciaire de la Jeunesse</a></li></ul></li><li><a href="Default.aspx?Cat=36">Partenaires</a><ul><li><a target=_blank href="https://www.creditmutuel.fr/home/index.html">Crédit Mutuel</a></li><li><a target=_blank href="https://www.echecs.asso.fr/Actu.aspx?Ref=15429">Crédit Mutuel Enseignant</a></li><li><a target=_blank href="http://www.profession-sport-loisirs.fr">Profession Sports & Loisirs</a></li><li><a target=_blank href="http://www.echiquierdelareussite.org">L'échiquier de la réussite</a></li><li><a target=_blank href="http://www.olibris.fr">Olibris</a></li><li><a target=_blank href="http://www.ucpa-vacances.com">U.C.P.A.</a></li><li><a target=_blank href="http://www.chateauvillandry.fr">Le Château de Villandry</a></li><li><a target=_blank href="https://www.apf-francehandicap.org/">A.P.F.</a></li><li><a target=_blank href="http://www.echecs.asso.fr/Default.aspx?Cat=57">D.P.J.J.</a></li><li><a target=_blank href="https://unss.org/">U.N.S.S.</a></li><li><a target=_blank href="https://usep.org/">U.S.E.P.</a></li><li><a target=_blank href="http://www.aefe.fr/">A.E.F.E.</a></li><li><a target=_blank href="http://www.ffse.fr/">F.F.S.E.</a></li><li><a target=_blank href="http://www.femixsports.fr/">Femix'Sports</a></li><li><a target=_blank href="http://www.echecs.asso.fr/Actu.aspx?Ref=13000">VARIANTES</a></li><li><a target=_blank href="https://www.amf.asso.fr/">A.M.F.</a></li><li><a target=_blank href="http://echecs.asso.fr/Actu.aspx?Ref=13938">Apprendre les échecs en 24 heures</a></li><li><a target=_blank href="https://www.pro-evolution-echecs.com/">Pro Evolution Échecs</a></li><li><a target=_blank href="https://www.robindubien.org/">Robin du Bien</a></li></ul></li><li><a href="http://echecs.asso.fr/Actu.aspx?Ref=10771">Boutique</a></li></ul>
+<!-- end #menu -->
+  
+<!-- end #pub -->
+</div>
+<!-- end #header -->
+<div id="page">
+  <div id="page-bgtop">
+    <div id="page-bgbtm">
+      
+
+<table id=TablePage cellSpacing=6 cellPadding=2 Class=page >
+  <tr>
+    <td>
+<div align=center><div align=center>
+<table width=800 cellpadding=2 cellspacing=0 style=border-collapse:collapse;>
+ <tr class=papi_titre>
+  <td colspan=3 align=center>Festival de Tournois Classiques d'Ete 2026 - Fermé<br />Appariements</td>
+ </tr>
+ <tr height=20 class=papi_liste_t>
+  <td colspan=3 align=center>RONDE 1</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>f Hillel TOLEDO</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Antoine LEMONNIER</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Samuel DUBUISSON</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Etienne ORIEUX</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Arman SARKISIAN</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Valentin BORNHOFEN</td>
+ </tr>
+ <tr height=20 class=papi_liste_t>
+  <td colspan=3 align=center>RONDE 2</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Valentin BORNHOFEN</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Etienne ORIEUX</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Arman SARKISIAN</td>
+  <td class=papi_c width=40>1 - 0</td>
+  <td class=papi_c width=230>f Hillel TOLEDO</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Antoine LEMONNIER</td>
+  <td class=papi_c width=40>0 - 1</td>
+  <td class=papi_c width=230>Samuel DUBUISSON</td>
+ </tr>
+ <tr height=20 class=papi_liste_t>
+  <td colspan=3 align=center>RONDE 3</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>f Hillel TOLEDO</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Valentin BORNHOFEN</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Etienne ORIEUX</td>
+  <td class=papi_c width=40>0 - 1</td>
+  <td class=papi_c width=230>Antoine LEMONNIER</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Samuel DUBUISSON</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Arman SARKISIAN</td>
+ </tr>
+ <tr height=20 class=papi_liste_t>
+  <td colspan=3 align=center>RONDE 4</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>f Hillel TOLEDO</td>
+  <td class=papi_c width=40>0 - 1</td>
+  <td class=papi_c width=230>Samuel DUBUISSON</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Valentin BORNHOFEN</td>
+  <td class=papi_c width=40>1 - 0</td>
+  <td class=papi_c width=230>Antoine LEMONNIER</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Arman SARKISIAN</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Etienne ORIEUX</td>
+ </tr>
+ <tr height=20 class=papi_liste_t>
+  <td colspan=3 align=center>RONDE 5</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Etienne ORIEUX</td>
+  <td class=papi_c width=40>0 - 1</td>
+  <td class=papi_c width=230>f Hillel TOLEDO</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Samuel DUBUISSON</td>
+  <td class=papi_c width=40>1 - 0</td>
+  <td class=papi_c width=230>Valentin BORNHOFEN</td>
+ </tr>
+ <tr height=20 class=papi_liste_c>
+  <td class=papi_c width=230>Antoine LEMONNIER</td>
+  <td class=papi_c width=40>X - X</td>
+  <td class=papi_c width=230>Arman SARKISIAN</td>
+ </tr>
+</table>
+</div>
+</div>
+<div align=center>
+  <p>
+    
+  </p>
+</div>
+    </td>
+  </tr>
+</table>
+
+
+    </div>
+  </div>
+</div>
+<!-- end #page -->
+<div id="ctl00_divfooter">
+<div id="footer">
+  <p>
+    <strong>Copyright  © 2015 FFE | 
+    <a href="http://www.echecs.asso.fr/Ag/Mentions_legales_FFE.pdf">Mentions légales</a> |
+    <a href="http://www.echecs.asso.fr/Ag/RGPD.pdf">Protection des données</a></strong><br>
+    Fédération Française des Echecs | <span id="ctl00_LabelAdresse">6 rue de l'Eglise | 92600 ASNIERES SUR SEINE</span> <br>
+    tél : <span id="ctl00_LabelTel">01 39 44 65 80</span> | contact : 
+    <a href="mailto:contact@ffechecs.fr">contact@ffechecs.fr</a> | webmestre : 
+    <a href="mailto:erick.mouret@echecs.asso.fr">erick.mouret@echecs.asso.fr</a>
+  </p><br>
+  <p id="logo-ffe"><img src="images/logo-ffe.png" /></p>
+</div>
+</div>
+</body>
+</html>
+
