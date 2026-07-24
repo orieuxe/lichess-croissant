@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import {
   listStudies,
@@ -68,6 +69,23 @@ function desiredChapterTitle(g: string, ourName: string): string {
   const oppName = getTag(g, oppSide) ?? '?';
   const oppElo = getTag(g, `${oppSide}Elo`) ?? '?';
   return `${letter} vs ${oppName} ${oppElo}`;
+}
+
+// Auto-commit only the data files this run touched — never src/, so an
+// in-progress code change on the branch can't get swept into a data commit.
+function commitGameData(filename: string, studyName: string) {
+  try {
+    execFileSync('git', [
+      'add', '-A', '--',
+      `downloaded/${filename}`, 'manifest.json',
+      'merged_classique_*.pgn', 'merged_non-classique_*.pgn',
+    ]);
+    execFileSync('git', ['commit', '-m', `feat: add ${studyName} games`]);
+    console.log('Commit git créé (données seulement).');
+  }
+  catch (err) {
+    console.warn(`git commit sauté (${(err as Error).message.split('\n')[0]})`);
+  }
 }
 
 async function main() {
@@ -325,6 +343,7 @@ async function main() {
     // never leaves a study wrongly marked as done.
     manifest[study.id] = filename;
     saveManifest(manifest);
+    commitGameData(filename, study.name);
   }
   else {
     console.log(
