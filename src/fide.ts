@@ -45,6 +45,31 @@ export async function getFidePlayer(id: string): Promise<FideCandidate | null> {
   return res.json();
 }
 
+function titleCase(s: string): string {
+  return s.replace(/[\p{L}]+/gu, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
+}
+
+// No FIDE match at all — still reshape to "Surname, Firstname" on a best
+// effort basis: a comma already settles the order; otherwise an all-caps
+// token marks the surname (FFE convention "SURNAME Firstname"); with no case
+// signal either, assume the last token is the surname (plain "Firstname
+// Lastname"). Can't be certain, but beats leaving the raw chapter-title order.
+export function normalizeUnmatchedName(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.includes(',')) {
+    const [surname, ...rest] = trimmed.split(',');
+    return `${titleCase(surname.trim())}, ${titleCase(rest.join(',').trim())}`;
+  }
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return trimmed;
+  const isUpper = (t: string) => t === t.toUpperCase() && t !== t.toLowerCase();
+  const upperIdx = tokens.findIndex(isUpper);
+  const surnameIdx = upperIdx !== -1 ? upperIdx : tokens.length - 1;
+  const surname = tokens[surnameIdx];
+  const firstname = tokens.filter((_, i) => i !== surnameIdx).join(' ');
+  return `${titleCase(surname)}, ${titleCase(firstname)}`;
+}
+
 // ponytail: on no/ambiguous match, ask for a FIDE id instead of silently
 // keeping the raw FFE name — askFideId returns '' to skip and keep it as-is.
 export async function resolveFideName(
@@ -61,13 +86,15 @@ export async function resolveFideName(
   }
 
   const id = (await askFideId(ffeName)).trim();
-  if (!id) return { name: ffeName };
+  if (!id) return { name: normalizeUnmatchedName(ffeName) };
 
   try {
     const player = await getFidePlayer(id);
-    return player ? { name: player.name, title: player.title, fideId: String(player.id) } : { name: ffeName };
+    return player
+      ? { name: player.name, title: player.title, fideId: String(player.id) }
+      : { name: normalizeUnmatchedName(ffeName) };
   }
   catch {
-    return { name: ffeName };
+    return { name: normalizeUnmatchedName(ffeName) };
   }
 }

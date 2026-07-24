@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { matchFideName, resolveFideName } from './fide.ts';
+import { matchFideName, resolveFideName, normalizeUnmatchedName } from './fide.ts';
+
+for (const raw of ['Etienne Orieux', 'Etienne ORIEUX', 'Orieux, Etienne', 'ORIEUX, Etienne']) {
+  assert.equal(normalizeUnmatchedName(raw), 'Orieux, Etienne', `normalize "${raw}"`);
+}
 
 const khamNguyenCandidates = [
   { id: 1, name: 'Kham-Nguyen, Mathys', federation: 'FRA', standard: 2098 },
@@ -31,7 +35,7 @@ assert.equal(own.title, undefined, 'no FIDE title yet');
 assert.equal(own.fideId, '45185743');
 
 const skipped = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '');
-assert.equal(skipped.name, 'Nom Improbable Zzzqx Ffe Test', 'blank id answer keeps raw name');
+assert.equal(skipped.name, 'Test, Nom Improbable Zzzqx Ffe', 'blank id answer still reshapes to "Surname, ..."');
 
 const viaId = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '655830');
 assert.equal(viaId.name, 'Bailet, Pierre', 'resolves via manually given FIDE id');
@@ -39,6 +43,6 @@ assert.equal(viaId.title, 'GM');
 assert.equal(viaId.fideId, '655830');
 
 const badId = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '999999999999');
-assert.equal(badId.name, 'Nom Improbable Zzzqx Ffe Test', 'unknown id falls back to raw name');
+assert.equal(badId.name, 'Test, Nom Improbable Zzzqx Ffe', 'unknown id also reshapes to "Surname, ..."');
 
 console.log('fide.test.ts OK');
