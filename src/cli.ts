@@ -11,7 +11,14 @@ import {
 } from './lichess.ts';
 import { fetchFiche, fetchRounds } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
-import { splitGames, setTag, getTag, removeTag, previewMoves } from './pgn.ts';
+import {
+  splitGames,
+  setTag,
+  getTag,
+  removeTag,
+  previewMoves,
+  resultFromFfe,
+} from './pgn.ts';
 import { mergeCategory } from './merge.ts';
 import { resolveFideName } from './fide.ts';
 
@@ -141,6 +148,11 @@ async function main() {
       if (r.color && r.opponentName) {
         const ourSide = r.color === 'B' ? 'White' : 'Black';
         const oppSide = r.color === 'B' ? 'Black' : 'White';
+        if (r.result) {
+          const result = resultFromFfe(r.result, ourSide);
+          const currentResult = getTag(g, 'Result');
+          if (!currentResult || currentResult === '*') g = setTag(g, 'Result', result);
+        }
         if (!opponentNameCache.has(r.opponentName)) {
           opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
         }
@@ -174,7 +186,7 @@ async function main() {
         continue;
       }
       const tags: Record<string, string> = { UTCDate: '', UTCTime: '', ChapterName: '' };
-      for (const tag of ['Round', 'Event', 'White', 'Black', 'WhiteElo', 'BlackElo', 'TimeControl']) {
+      for (const tag of ['Round', 'Event', 'Result', 'White', 'Black', 'WhiteElo', 'BlackElo', 'TimeControl']) {
         const value = getTag(g, tag);
         if (value) tags[tag] = value;
       }

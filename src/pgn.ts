@@ -25,6 +25,15 @@ export function removeTag(game: string, tag: string): string {
   return game.replace(re, '');
 }
 
+export function resultFromFfe(
+  ffeResult: '+' | '=' | '-',
+  ourSide: 'White' | 'Black',
+): '1-0' | '0-1' | '1/2-1/2' {
+  if (ffeResult === '=') return '1/2-1/2';
+  const weWon = ffeResult === '+';
+  return weWon === (ourSide === 'White') ? '1-0' : '0-1';
+}
+
 // ponytail: regex-based preview, not a real PGN move parser — good enough to
 // let a human eyeball "which chapter is this" during exclusion prompts.
 export function previewMoves(game: string, tokenCount = 14): string {

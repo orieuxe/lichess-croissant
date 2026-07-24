@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { splitGames, getTag, setTag, removeTag, previewMoves } from './pgn.ts';
+import {
+  splitGames,
+  getTag,
+  setTag,
+  removeTag,
+  previewMoves,
+  resultFromFfe,
+} from './pgn.ts';
 
 const sample = `[Event "A"]
 [Date "2025.01.01"]
@@ -31,6 +38,13 @@ assert.equal(getTag(withoutUtc, 'UTCDate'), null);
 assert.equal(getTag(withoutUtc, 'UTCTime'), null);
 assert.equal(getTag(withoutUtc, 'Date'), '2025.01.01');
 assert.equal(removeTag(withUtc, 'NotPresent'), withUtc);
+
+assert.equal(resultFromFfe('=', 'White'), '1/2-1/2');
+assert.equal(resultFromFfe('=', 'Black'), '1/2-1/2');
+assert.equal(resultFromFfe('+', 'White'), '1-0');
+assert.equal(resultFromFfe('+', 'Black'), '0-1');
+assert.equal(resultFromFfe('-', 'White'), '0-1');
+assert.equal(resultFromFfe('-', 'Black'), '1-0');
 
 const annotated = `[Event "C"]
 
