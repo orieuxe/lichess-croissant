@@ -71,7 +71,7 @@ function desiredChapterTitle(g: string, ourName: string): string {
   return `${letter} vs ${oppName} ${oppElo}`;
 }
 
-// Auto-commit only the data files this run touched — never src/, so an
+// Auto-commit+push only the data files this run touched — never src/, so an
 // in-progress code change on the branch can't get swept into a data commit.
 function commitGameData(filename: string, studyName: string) {
   try {
@@ -85,6 +85,14 @@ function commitGameData(filename: string, studyName: string) {
   }
   catch (err) {
     console.warn(`git commit sauté (${(err as Error).message.split('\n')[0]})`);
+    return;
+  }
+  try {
+    execFileSync('git', ['push']);
+    console.log('Poussé sur github.');
+  }
+  catch (err) {
+    console.warn(`git push échoué (${(err as Error).message.split('\n')[0]})`);
   }
 }
 
@@ -295,7 +303,7 @@ async function main() {
       );
       console.log(`    ${previewMoves(g, 24)}`);
     }
-    const confirm = await ask('\nSauvegarder (merge + manifest + push lichess) ? [O/n] ');
+    const confirm = await ask('\nSauvegarder (merge + manifest + push lichess + push github) ? [O/n] ');
     if (confirm.trim().toLowerCase().startsWith('n')) {
       console.log('Annulé, rien de sauvegardé.');
       rl.close();
