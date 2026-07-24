@@ -11,6 +11,7 @@ import { fetchFiche, fetchRounds } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
 import { splitGames, setTag, getTag, previewMoves } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
+import { fideFormattedName } from './fide.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FFE_PLAYER_NAME = process.env.FFE_PLAYER_NAME ?? 'ORIEUX Etienne';
@@ -106,22 +107,28 @@ async function main() {
 
   if (match) {
     const { fiche, rounds, includedIndices } = match;
-    includedIndices.forEach((gameIdx, roundIdx) => {
+    const ourName = await fideFormattedName(FFE_PLAYER_NAME);
+    const opponentNameCache = new Map<string, string>();
+
+    for (const [roundIdx, gameIdx] of includedIndices.entries()) {
       const r = rounds[roundIdx];
       let g = games[gameIdx];
       g = setTag(g, 'Round', String(r.round));
       if (r.color && r.opponentName) {
         const ourSide = r.color === 'B' ? 'White' : 'Black';
         const oppSide = r.color === 'B' ? 'Black' : 'White';
-        // ponytail: FFE name kept as-is ("NOM Prénom"), not reformatted to "Nom, Prénom"
-        if (!getTag(g, oppSide)) g = setTag(g, oppSide, r.opponentName);
+        if (!opponentNameCache.has(r.opponentName)) {
+          opponentNameCache.set(r.opponentName, await fideFormattedName(r.opponentName));
+        }
+        const opponentName = opponentNameCache.get(r.opponentName)!;
+        if (!getTag(g, oppSide)) g = setTag(g, oppSide, opponentName);
         if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
           g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ''));
-        if (!getTag(g, ourSide)) g = setTag(g, ourSide, FFE_PLAYER_NAME);
+        if (!getTag(g, ourSide)) g = setTag(g, ourSide, ourName);
       }
       g = setTag(g, 'TimeControl', fiche.cadenceText);
       games[gameIdx] = g;
-    });
+    }
 
     const category = await classifyCadence(fiche.cadenceText, askCategory);
 
