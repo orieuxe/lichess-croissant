@@ -45,6 +45,17 @@ async function askFideId(ffeName: string): Promise<string> {
   );
 }
 
+// "B/N vs Nom, Prénom elo" — the chapter title convention, used both in the
+// recap and next to the lichess push log (can't be pushed, see PLAN.md).
+function desiredChapterTitle(g: string, ourName: string): string {
+  const ourSide = getTag(g, 'White') === ourName ? 'White' : 'Black';
+  const oppSide = ourSide === 'White' ? 'Black' : 'White';
+  const letter = ourSide === 'White' ? 'B' : 'N';
+  const oppName = getTag(g, oppSide) ?? '?';
+  const oppElo = getTag(g, `${oppSide}Elo`) ?? '?';
+  return `${letter} vs ${oppName} ${oppElo}`;
+}
+
 async function main() {
   if (!FIDE_ID) throw new Error('FIDE_ID not set (check .env)');
   const ownPlayer = await getFidePlayer(FIDE_ID);
@@ -204,13 +215,8 @@ async function main() {
     console.log('\nRécap avant sauvegarde :');
     for (const gameIdx of includedIndices) {
       const g = games[gameIdx];
-      const ourSide = getTag(g, 'White') === our.name ? 'White' : 'Black';
-      const oppSide = ourSide === 'White' ? 'Black' : 'White';
-      const letter = ourSide === 'White' ? 'B' : 'N';
-      const oppName = getTag(g, oppSide) ?? '?';
-      const oppElo = getTag(g, `${oppSide}Elo`) ?? '?';
       console.log(
-        `  ${getTag(g, 'Round')} - ${letter} vs ${oppName} ${oppElo} (${getTag(g, 'Result')})`,
+        `  ${getTag(g, 'Round')} - ${desiredChapterTitle(g, our.name)} (${getTag(g, 'Result')})`,
       );
       console.log(`    ${previewMoves(g, 24)}`);
     }
@@ -257,12 +263,13 @@ async function main() {
       }
       // EventURL isn't a tag lichess accepts — use Event for the FFE link directly.
       tags.Event = ffeUrl;
+      const title = desiredChapterTitle(g, our.name);
       try {
         await updateChapterTags(study.id, chapterId, tags);
-        console.log(`  ${chapterId} mis à jour`);
+        console.log(`  ${chapterId} (${title}) mis à jour`);
       }
       catch (err) {
-        console.warn(`  ${chapterId} échec: ${(err as Error).message}`);
+        console.warn(`  ${chapterId} (${title}) échec: ${(err as Error).message}`);
       }
     }
     console.log(
