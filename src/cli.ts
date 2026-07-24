@@ -11,7 +11,7 @@ import { fetchFiche, fetchRounds } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
 import { splitGames, setTag, getTag, previewMoves } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
-import { fideFormattedName } from './fide.ts';
+import { resolveFideName } from './fide.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FFE_PLAYER_NAME = process.env.FFE_PLAYER_NAME ?? 'ORIEUX Etienne';
@@ -26,6 +26,12 @@ async function askCategory(cadenceText: string): Promise<Category> {
   return answer.trim().toLowerCase().startsWith('n')
     ? 'non-classique'
     : 'classique';
+}
+
+async function askFideId(ffeName: string): Promise<string> {
+  return ask(
+    `Pas de correspondance FIDE claire pour "${ffeName}" — ID FIDE (vide = garder tel quel) : `,
+  );
 }
 
 async function main() {
@@ -107,7 +113,7 @@ async function main() {
 
   if (match) {
     const { fiche, rounds, includedIndices } = match;
-    const ourName = await fideFormattedName(FFE_PLAYER_NAME);
+    const ourName = await resolveFideName(FFE_PLAYER_NAME, askFideId);
     const opponentNameCache = new Map<string, string>();
 
     for (const [roundIdx, gameIdx] of includedIndices.entries()) {
@@ -118,7 +124,7 @@ async function main() {
         const ourSide = r.color === 'B' ? 'White' : 'Black';
         const oppSide = r.color === 'B' ? 'Black' : 'White';
         if (!opponentNameCache.has(r.opponentName)) {
-          opponentNameCache.set(r.opponentName, await fideFormattedName(r.opponentName));
+          opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
         }
         const opponentName = opponentNameCache.get(r.opponentName)!;
         if (!getTag(g, oppSide)) g = setTag(g, oppSide, opponentName);

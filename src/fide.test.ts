@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { matchFideName, fideFormattedName } from './fide.ts';
+import { matchFideName, resolveFideName } from './fide.ts';
 
 const khamNguyenCandidates = [
   { name: 'Kham-Nguyen, Mathys', federation: 'FRA', standard: 2098 },
@@ -18,10 +18,18 @@ assert.equal(matchFideName('Pierre Personne Inconnue', pierreCandidates), null, 
 assert.equal(matchFideName('Pierre', pierreCandidates), null, 'ambiguous single token => null');
 
 // live smoke test against the real lichess FIDE API
-const own = await fideFormattedName('ORIEUX Etienne');
+const own = await resolveFideName('ORIEUX Etienne', async () => {
+  throw new Error('should not need to ask, exact match expected');
+});
 assert.equal(own, 'Orieux, Etienne');
 
-const noMatch = await fideFormattedName('Nom Improbable Zzzqx Ffe Test');
-assert.equal(noMatch, 'Nom Improbable Zzzqx Ffe Test', 'falls back to raw name when nothing matches');
+const skipped = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '');
+assert.equal(skipped, 'Nom Improbable Zzzqx Ffe Test', 'blank id answer keeps raw name');
+
+const viaId = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '655830');
+assert.equal(viaId, 'Bailet, Pierre', 'resolves via manually given FIDE id');
+
+const badId = await resolveFideName('Nom Improbable Zzzqx Ffe Test', async () => '999999999999');
+assert.equal(badId, 'Nom Improbable Zzzqx Ffe Test', 'unknown id falls back to raw name');
 
 console.log('fide.test.ts OK');
