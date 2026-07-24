@@ -40,7 +40,7 @@ const closedInfo = await fetchFiche(
   'https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=72157',
 );
 assert.equal(closedInfo.numRounds, 5);
-assert.equal(closedInfo.cadenceText, "60' + [30'']");
+assert.equal(closedInfo.cadenceText, '60\' + [30\'\']');
 assert.equal(
   closedInfo.resultsLinks.Ga,
   undefined,

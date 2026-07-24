@@ -25,8 +25,8 @@ export async function listStudies(username: string): Promise<StudyRef[]> {
     .trim()
     .split('\n')
     .filter(Boolean)
-    .map((line) => JSON.parse(line))
-    .map((s) => ({ id: s.id, name: s.name }));
+    .map(line => JSON.parse(line))
+    .map(s => ({ id: s.id, name: s.name }));
 }
 
 export async function downloadStudy(studyId: string): Promise<string> {
@@ -74,5 +74,5 @@ export function studiesNotDownloaded(
   studies: StudyRef[],
   manifest: Record<string, string>,
 ): StudyRef[] {
-  return studies.filter((s) => !(s.id in manifest));
+  return studies.filter(s => !(s.id in manifest));
 }

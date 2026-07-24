@@ -87,10 +87,10 @@ async function main() {
       const excluded = new Set(
         excludeAnswer
           .split(',')
-          .map((s) => parseInt(s.trim(), 10) - 1)
-          .filter((n) => !Number.isNaN(n)),
+          .map(s => parseInt(s.trim(), 10) - 1)
+          .filter(n => !Number.isNaN(n)),
       );
-      includedIndices = includedIndices.filter((i) => !excluded.has(i));
+      includedIndices = includedIndices.filter(i => !excluded.has(i));
     }
 
     if (includedIndices.length !== fiche.numRounds) {
@@ -128,10 +128,11 @@ async function main() {
     writeFileSync(`downloaded/${filename}`, games.join('\n\n\n') + '\n');
     const merged = mergeCategory(
       category,
-      includedIndices.map((i) => games[i]),
+      includedIndices.map(i => games[i]),
     );
     console.log(`Fusionné dans ${merged}`);
-  } else {
+  }
+  else {
     console.log(
       'Pas de lien FFE, pas de merge (Round/adversaire/cadence manquants).',
     );

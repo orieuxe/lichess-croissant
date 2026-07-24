@@ -9,14 +9,17 @@
   "scripts": {
     "start": "node --env-file=.env src/cli.ts",
     "test": "node src/pgn.test.ts && node src/ffe.test.ts && node src/lichess.test.ts && node src/merge.test.ts && node src/cadence.test.ts",
-    "format": "prettier --write .",
-    "lint": "prettier --check ."
+    "format": "eslint . --fix",
+    "lint": "eslint ."
   },
   "dependencies": {
     "cheerio": "^1.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^26.1.1",
-    "prettier": "^3.9.6"
+    "eslint": "^10.7.0",
+    "typescript-eslint": "^8.65.0"
   }
 }

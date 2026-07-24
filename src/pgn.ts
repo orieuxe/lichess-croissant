@@ -1,7 +1,7 @@
 export function splitGames(pgnText: string): string[] {
   return pgnText
     .split(/\n(?=\[Event )/)
-    .map((g) => g.trim())
+    .map(g => g.trim())
     .filter(Boolean);
 }
 
