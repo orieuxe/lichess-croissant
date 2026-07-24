@@ -8,6 +8,8 @@ import {
   studiesNotDownloaded,
   extractChapterId,
   updateChapterTags,
+  loadIgnored,
+  ignoreStudy,
 } from './lichess.ts';
 import { fetchFiche, fetchRounds } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
@@ -46,18 +48,34 @@ async function askFideId(ffeName: string): Promise<string> {
 async function main() {
   const manifest = loadManifest();
   const studies = await listStudies(LICHESS_USERNAME);
-  const suggestions = studiesNotDownloaded(studies, manifest);
 
-  console.log(`\nStudies pas encore téléchargées (${suggestions.length}) :`);
-  suggestions.forEach((s, i) => console.log(`  ${i + 1}. ${s.name}`));
+  let study: { id: string; name: string } | undefined;
+  while (!study) {
+    const suggestions = studiesNotDownloaded(studies, manifest, loadIgnored());
 
-  const choice = await ask('\nNuméro à télécharger (vide = quitter) : ');
-  if (!choice.trim()) {
-    rl.close();
-    return;
+    console.log(`\nStudies pas encore téléchargées (${suggestions.length}) :`);
+    suggestions.forEach((s, i) => console.log(`  ${i + 1}. ${s.name}`));
+
+    const choice = await ask(
+      '\nNuméro à télécharger, "i<numéro>" pour ignorer définitivement (vide = quitter) : ',
+    );
+    if (!choice.trim()) {
+      rl.close();
+      return;
+    }
+
+    const ignoreMatch = choice.trim().match(/^i(\d+)$/i);
+    if (ignoreMatch) {
+      const toIgnore = suggestions[parseInt(ignoreMatch[1], 10) - 1];
+      if (!toIgnore) throw new Error('choix invalide');
+      ignoreStudy(toIgnore.id);
+      console.log(`Ignorée : ${toIgnore.name}`);
+      continue;
+    }
+
+    study = suggestions[parseInt(choice, 10) - 1];
+    if (!study) throw new Error('choix invalide');
   }
-  const study = suggestions[parseInt(choice, 10) - 1];
-  if (!study) throw new Error('choix invalide');
 
   const filename = await downloadStudy(study.id);
   console.log(`Téléchargé : downloaded/${filename}`);
