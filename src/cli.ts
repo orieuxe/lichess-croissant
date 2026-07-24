@@ -25,7 +25,6 @@ import { mergeCategory } from './merge.ts';
 import { resolveFideName, getFidePlayer, type ResolvedFideName } from './fide.ts';
 
 const LICHESS_USERNAME = 'timoruu';
-const FFE_PLAYER_NAME = process.env.FFE_PLAYER_NAME ?? 'ORIEUX Etienne';
 const FIDE_ID = process.env.FIDE_ID;
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -47,6 +46,13 @@ async function askFideId(ffeName: string): Promise<string> {
 }
 
 async function main() {
+  if (!FIDE_ID) throw new Error('FIDE_ID not set (check .env)');
+  const ownPlayer = await getFidePlayer(FIDE_ID);
+  if (!ownPlayer) throw new Error(`FIDE id ${FIDE_ID} not found`);
+  const our: ResolvedFideName = { name: ownPlayer.name, title: ownPlayer.title };
+  // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
+  const ffeMatchName = ownPlayer.name.replace(',', '');
+
   const manifest = loadManifest();
   const studies = await listStudies(LICHESS_USERNAME);
 
@@ -107,7 +113,7 @@ async function main() {
 
     const { ownElo, rounds } = await fetchRounds(
       fiche.resultsLinks.Ga,
-      FFE_PLAYER_NAME,
+      ffeMatchName,
     );
 
     let includedIndices = games.map((_, i) => i);
@@ -144,11 +150,6 @@ async function main() {
 
   if (match) {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices } = match;
-    const our: ResolvedFideName = FIDE_ID
-      ? await getFidePlayer(FIDE_ID).then(p =>
-          p ? { name: p.name, title: p.title } : { name: FFE_PLAYER_NAME },
-        )
-      : await resolveFideName(FFE_PLAYER_NAME, askFideId);
     const ourEloValue = ownElo.replace(/\s*F$/, '');
     const opponentNameCache = new Map<string, ResolvedFideName>();
 
