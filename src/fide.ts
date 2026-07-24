@@ -31,10 +31,33 @@ export function matchFideName(ffeName: string, candidates: FideCandidate[]): str
   return matches.length === 1 ? matches[0].name : null;
 }
 
-export async function fideFormattedName(ffeName: string): Promise<string> {
+export async function getFidePlayer(id: string): Promise<FideCandidate | null> {
+  const res = await fetch(`https://lichess.org/api/fide/player/${encodeURIComponent(id)}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// ponytail: on no/ambiguous match, ask for a FIDE id instead of silently
+// keeping the raw FFE name — askFideId returns '' to skip and keep it as-is.
+export async function resolveFideName(
+  ffeName: string,
+  askFideId: (ffeName: string) => Promise<string>,
+): Promise<string> {
   try {
     const candidates = await searchFidePlayers(ffeName);
-    return matchFideName(ffeName, candidates) ?? ffeName;
+    const matched = matchFideName(ffeName, candidates);
+    if (matched) return matched;
+  }
+  catch {
+    // network hiccup: fall through to asking for a manual FIDE id
+  }
+
+  const id = (await askFideId(ffeName)).trim();
+  if (!id) return ffeName;
+
+  try {
+    const player = await getFidePlayer(id);
+    return player?.name ?? ffeName;
   }
   catch {
     return ffeName;
