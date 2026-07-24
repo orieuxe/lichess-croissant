@@ -1,38 +1,29 @@
-# Plan — suite phase 1
+# Plan — lichess-croissant
 
-## Fixes en cours (suite aux questions)
+## Fait (phase 1)
 
-1. **Cadence auto-classée par seuil**, pas juste table manuelle.
-   Règle : temps de base ≥ 60 min (`1h`, `60'`, `1h30`, ...) → `classique` automatique.
-   < 60 min → `non-classique` automatique.
-   Table `cadence-map.json` gardée seulement comme fallback si le texte est
-   illisible (format jamais vu) — dans ce cas on demande, comme avant.
+- Download study lichess (compte `timoruu` uniquement), suggestion via manifest `studyId → filename`
+- Scraping FFE : fiche (dates/rondes/cadence/titre) + grille américaine (rondes/adversaires/elo), lien résultats découvert dynamiquement depuis la fiche (plus de `Action=Ga` en dur)
+- Tournoi fermé/round-robin (que `Grille Berger`, pas de `Ga`) → alerte claire, skip enrichissement rondes, pas de parser Berger (pas de besoin réel encore)
+- Exclusion manuelle de chapitres (ex: partie d'un autre joueur dans la study) si nb parties > nb rondes FFE, avec preview coups
+- Cadence classée auto par seuil (≥60min = classique), table `cadence-map.json` en fallback si texte illisible
+- Noms adversaire + soi-même reformatés "Nom, Prénom" via `lichess.org/api/fide/player`, demande l'ID FIDE si pas de match clair
+- Tags posés : Round, Event (choix titre FFE / nom study / libre), White/Black, WhiteElo/BlackElo (adversaire + soi), Result (dérivé +/=/- FFE), TimeControl (texte cadence brut)
+- UTCDate/UTCTime/ChapterName supprimés
+- Push des tags vers lichess (`POST /api/study/{id}/{chapterId}/tags`)
+- Merge : un fichier classique + un fichier non-classique (rapide+blitz), écrasés/renommés à chaque run, dédupliqué par `Site`
+- `Date` du PGN jamais touché (celui posé par le retransmetteur en direct, fiable — FFE ne publie pas de calendrier ronde par ronde exploitable, confirmé sur Saint-Quentin 9 rondes/7 jours)
+- Manifest écrit seulement en fin de flow réussi (pas juste après download)
+- ESLint (single quotes + règles TS), `npm run lint`/`format`
 
-2. **Dates de ronde** : pas touchées, `Date` reste celui du PGN lichess
-   (posé par le retransmetteur en direct, généralement fiable). Confirmé
-   nécessaire vu Saint-Quentin (9 rondes / 7 jours, pas 1 ronde = 1 jour,
-   FFE ne publie pas de calendrier ronde par ronde exploitable).
+## Limitation connue
 
-3. **Lien résultats FFE découvert dynamiquement**, plus construit en dur
-   sur `Action=Ga`. La fiche liste les formats dispos (`Ga`, `Berger`,
-   `Fide`, ...) — on scrape le vrai lien.
-   - Tournoi ouvert (Suisse) → `Grille Américaine` (`Ga`), déjà supporté.
-   - Tournoi fermé/round-robin (ex Ref=72157) → seulement `Grille Berger`,
-     format tableau différent, **pas encore de parser**. Pour l'instant :
-     détecté → alerte claire, skip enrichissement rondes/adversaires
-     (le `TimeControl` est quand même posé, ça n'a pas besoin des rondes).
-     Parser Berger = travail futur si besoin réel se présente.
+Renommer le titre d'un chapitre existant ("B/N vs Nom, Prénom elo") : **pas possible via l'API publique lichess**, seuls les tags PGN sont modifiables, le titre n'est dérivé du PGN qu'à l'import initial. Feature request déposée : https://github.com/lichess-org/api/issues/660. À faire à la main sur lichess en attendant, ou si l'issue avance.
+
+## Reste (phase 2, hors scope actuel)
+
+- Sync auto vers en-croissant `.db3` (sqlite), 2 bases (classique / non-classique), schéma à inspecter
 
 ## Qui lance quoi
 
-Toi lances `npm start` dans `/home/orieuxe/lichess-croissant` (input
-interactif, je ne peux pas piloter un vrai stdin bidirectionnel). Objectif
-confirmé : que tu puisses le faire seul, sans moi, une fois stable.
-
-## Ordre d'exécution
-
-1. Coder le seuil cadence (`src/cadence.ts`)
-2. Coder la découverte de lien résultats + détection Berger (`src/ffe.ts`, `src/cli.ts`)
-3. Mettre à jour les tests (`npm test`)
-4. Commit + push
-5. Toi : `npm start`, teste avec Saint-Quentin (Ref=69309) en vrai
+Toi lances `npm start` dans `/home/orieuxe/lichess-croissant` (input interactif, pas pilotable depuis mes outils).
