@@ -378,6 +378,7 @@ async function main() {
     const confirm = await ask('\nSauvegarder (merge + manifest + push lichess + push github) ? [O/n] ');
     if (confirm.trim().toLowerCase().startsWith('n')) {
       console.log('Annulé, rien de sauvegardé.');
+      console.log(`Study lichess : https://lichess.org/study/${study.id}`);
       rl.close();
       return;
     }
@@ -447,6 +448,7 @@ async function main() {
     );
   }
 
+  console.log(`Study lichess : https://lichess.org/study/${study.id}`);
   rl.close();
 }
 
