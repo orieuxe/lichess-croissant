@@ -10,6 +10,7 @@ export interface ResolvedFideName {
   name: string;
   title?: string;
   fideId?: string;
+  elo?: number;
 }
 
 export async function searchFidePlayers(query: string): Promise<FideCandidate[]> {
@@ -79,7 +80,7 @@ export async function resolveFideName(
   try {
     const candidates = await searchFidePlayers(ffeName);
     const matched = matchFideName(ffeName, candidates);
-    if (matched) return { name: matched.name, title: matched.title, fideId: String(matched.id) };
+    if (matched) return { name: matched.name, title: matched.title, fideId: String(matched.id), elo: matched.standard };
   }
   catch {
     // network hiccup: fall through to asking for a manual FIDE id
@@ -91,7 +92,7 @@ export async function resolveFideName(
   try {
     const player = await getFidePlayer(id);
     return player
-      ? { name: player.name, title: player.title, fideId: String(player.id) }
+      ? { name: player.name, title: player.title, fideId: String(player.id), elo: player.standard }
       : { name: normalizeUnmatchedName(ffeName) };
   }
   catch {

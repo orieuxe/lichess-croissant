@@ -53,7 +53,7 @@ async function askOpponentFideId(): Promise<ResolvedFideName> {
     const id = (await ask('ID FIDE de l\'adversaire (vide si inconnu) : ')).trim();
     if (id) {
       const player = await getFidePlayer(id);
-      if (player) return { name: player.name, title: player.title, fideId: String(player.id) };
+      if (player) return { name: player.name, title: player.title, fideId: String(player.id), elo: player.standard };
       console.warn(`ID FIDE ${id} introuvable, réessaie.`);
       continue;
     }
@@ -128,7 +128,12 @@ async function main() {
   if (!FIDE_ID) throw new Error('FIDE_ID not set (check .env)');
   const ownPlayer = await getFidePlayer(FIDE_ID);
   if (!ownPlayer) throw new Error(`FIDE id ${FIDE_ID} not found`);
-  const our: ResolvedFideName = { name: ownPlayer.name, title: ownPlayer.title, fideId: String(ownPlayer.id) };
+  const our: ResolvedFideName = {
+    name: ownPlayer.name,
+    title: ownPlayer.title,
+    fideId: String(ownPlayer.id),
+    elo: ownPlayer.standard,
+  };
   // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
   const ffeMatchName = ownPlayer.name.replace(',', '');
 
@@ -358,15 +363,17 @@ async function main() {
           g = setTag(g, `${oppSide}Title`, opponent.title);
         if (opponent.fideId && !getTag(g, `${oppSide}FideId`))
           g = setTag(g, `${oppSide}FideId`, opponent.fideId);
-        if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
-          g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ''));
+        const oppElo = r.opponentElo?.replace(/\s*F$/, '') || (opponent.elo ? String(opponent.elo) : '');
+        if (oppElo && !getTag(g, `${oppSide}Elo`))
+          g = setTag(g, `${oppSide}Elo`, oppElo);
         g = setTag(g, ourSide, our.name);
         if (our.title && !getTag(g, `${ourSide}Title`))
           g = setTag(g, `${ourSide}Title`, our.title);
         if (our.fideId && !getTag(g, `${ourSide}FideId`))
           g = setTag(g, `${ourSide}FideId`, our.fideId);
-        if (ourEloValue && !getTag(g, `${ourSide}Elo`))
-          g = setTag(g, `${ourSide}Elo`, ourEloValue);
+        const ownEloTag = ourEloValue || (our.elo ? String(our.elo) : '');
+        if (ownEloTag && !getTag(g, `${ourSide}Elo`))
+          g = setTag(g, `${ourSide}Elo`, ownEloTag);
       }
       if (fiche.cadenceText) g = setTag(g, 'TimeControl', fiche.cadenceText);
       games[gameIdx] = g;
