@@ -1,0 +1,80 @@
+[Event "Tournoi LMC Fermé 06/25: N vs Dubuisson Samuel"]
+[Date "2026.06.20"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "A17"]
+[Opening "English Opening: Anglo-Indian Defense, Hedgehog System"]
+[StudyName "Tournoi LMC Fermé 06/25"]
+[ChapterName "N vs Dubuisson Samuel"]
+[ChapterURL "https://lichess.org/study/ll6MzKVC/ajbqHTRH"]
+[Annotator "https://lichess.org/@/timoruu"]
+[UTCDate "2026.06.20"]
+[UTCTime "14:48:19"]
+
+1. c4 e6 2. Nc3 (2. d4 Nf6) 2... Nf6 3. a3 (3. e3) (3. Nf3) 3... d5 4. d4 c5 (4... dxc4 5. e4 c5) 5. cxd5 (5. e3) 5... cxd4 6. Qa4+ (6. Qxd4 Nc6 7. Qa4 exd5 8. Bg5 Be7 9. e3 O-O 10. O-O-O Be6 11. Nf3 Rc8 12. Kb1 a6 13. Be2 b5 14. Qxa6 b4) 6... Qd7 7. Qxd4 (7. dxe6 Qxa4 8. exf7+ Kxf7 9. Nxa4 b5) 7... Nc6 8. Qd3 (8. Qd1) 8... Nxd5 (8... exd5 9. Bg5 Be7 10. O-O-O (10. e3 d4) 10... d4 11. Bxf6) 9. Nf3 Be7 (9... Bc5 10. e4 Nxc3 11. Qxc3 Bd4) 10. Bg5 (10. e4 Nxc3 (10... Nb6 11. Qb5 (11. Qc2)) (10... Nf6) 11. Qxc3 O-O 12. Be3) 10... Bxg5 11. Nxg5 Nxc3 (11... Qe7 12. Nge4 (12. Nf3 Nxc3 13. Qxc3 O-O)) 12. Qxc3 Qd4 13. Rc1 (13. Qxd4 Nxd4 14. Rd1 (14. O-O-O e5 15. e3 Ne6 16. Ne4) 14... Nc6 (14... e5 15. e3 Ne6)) 13... Qxc3+ 14. Rxc3 Ke7 15. g3 Bd7 16. Bg2 Rac8 17. O-O Nd4 (17... f6 18. Ne4 (18. Nf3 e5 19. Rfc1)) 18. Re1 (18. Rxc8 Rxc8 19. e3 Nb3 (19... Ne2+) 20. Rd1) 18... Rxc3 (18... Bb5 19. Bf1 Rxc3 20. bxc3 Nb3 21. Rb1 Ba4) 19. bxc3 Nc6 20. Ne4 (20. Rd1 f6 21. Ne4 (21. Nf7 Rb8 22. Nd6 Na5) 21... b6 22. Nd6 (22. c4 Rc8 23. Nd6 Rb8 24. Nb5) 22... Na5) 20... b6 21. Rd1 (21. c4 Rc8 22. c5 f5) 21... Na5 22. Nd6 Ba4 23. Rd4 Rd8 24. Rxa4 Rxd6 25. Be4 Rd1+ (25... g6 26. Bd3 Rc6 27. c4 Rc5 28. Kg2 Kd6 29. f4 (29. Rb4 Nc6 30. Rb3 Ne5 31. Rc3) 29... Nc6) 26. Kg2 Rc1 27. Bxh7 g6 28. Rf4 Rxc3 29. Bg8 f5 (29... Kf8 30. Bxf7 g5 31. Rf6 Kg7 32. Rxe6 Kxf7 33. Rd6 Rxa3 34. Rd7+ Kf6 35. Rxa7 b5) 30. Rh4 Nc6 31. Rh7+ (31. Rh6) (31. a4 Ra3 (31... Kf6 32. Rh7) (31... Kd6 32. Bf7 (32. Rh6 Ne7 33. Bf7 Rc4 34. Bxg6 Nxg6 35. Rxg6 Rxa4 36. h4 Rc4 37. h5 (37. Rg7 a5 38. Ra7 a4 39. h5 b5 40. h6 Rc8))) 32. Rh7+ Kd6) 31... Kd6 32. Rg7 *
+
+
+[Event "Tournoi LMC Fermé 06/25: N vs Valentin BOHENDORF"]
+[Date "2026.06.20"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "C06"]
+[Opening "French Defense: Tarrasch Variation, Closed Variation, Main Line"]
+[StudyName "Tournoi LMC Fermé 06/25"]
+[ChapterName "N vs Valentin BOHENDORF"]
+[ChapterURL "https://lichess.org/study/ll6MzKVC/SLpX53t0"]
+[Annotator "https://lichess.org/@/timoruu"]
+[UTCDate "2026.06.20"]
+[UTCTime "16:24:14"]
+
+1. e4 e6 2. d4 d5 3. Nd2 Nf6 4. e5 Nfd7 5. Bd3 c5 6. c3 Nc6 7. Ne2 cxd4 8. cxd4 f6 9. exf6 Nxf6 10. O-O Bd6 11. Nf3 Qc7 12. Nc3 (12. Bg5 O-O 13. Rc1 (13. Nc3 a6 14. Rc1 Bd7 15. Bh4 Nh5 16. Re1 (16. Ng5 Bxh2+ 17. Kh1 g6 18. Nxh7 Rf4 19. g3 (19. Bg5 Be8 20. g4 (20. Nf6+ Nxf6 21. Bxf4) 20... Qxh7 (20... Rxd4 21. gxh5 Qxh7 (21... Be5) 22. Kxh2 Ne5 23. Bxg6 (23. h6 Rxd3 24. Qe2 Nf3+ 25. Kg2 Rxc3 26. Rxc3 Nxg5) (23. f4 Nxd3) (23. Qe2 Nxd3 (23... Rg4) 24. Qxe6+) 23... Bxg6 24. Qxd4 Qh6 (24... Qxh5+ 25. Qh4)) 21. gxh5 Rxd4 22. f4 Nb4 23. Bxg6 Bxg6 24. Qxd4 Qxh5 25. Kg2 Nd3 26. Rcd1 Nxb2 27. Rde1 Bf5 28. Re2 (28. Re3 Nc4 29. Ref3 Re8 (29... b5) (29... Nd6) 30. Nxd5 exd5 31. Qxd5+ Be6)) 19... Rxh4 20. gxh4 Nf4 21. Ng5) 16... g6 17. h3 Rxf3 18. Qxf3 Rf8 19. Qd1 Qb6 20. Ne2 Nxd4) 13... Bd7 (13... Ng4) 14. Ng3) 12... a6 13. Bg5 O-O 14. Rc1 (14. Bh4 Nh5 15. Ng5 g6) 14... Bd7 (14... Ng4 15. h3) 15. Bh4 (15. Re1) (15. Bb1) 15... Nh5 (15... Be8 16. Bg3 (16. Qe2)) (15... Ng4 16. Bg3) (15... Bf4 16. Bg3 Nh5) 16. Ng5 (16. Na4) (16. Re1 g6 (16... Nf4 17. Bf1 (17. Bg3))) 16... Nf6 (16... g6 17. Nxh7 Rf4 18. g3 Rxh4 19. gxh4 Bxh2+ 20. Kh1) (16... Bxh2+ 17. Kh1 g6 18. Nxh7 Rf4 19. g3 (19. Bg5 Be8 20. g3 Qxh7 21. gxf4 Nxf4 22. Qg4 Bg3+) 19... Rxh4 20. gxh4 Nf4 21. Ng5 Kg7 22. Nf3 Rh8 23. Nxh2 (23. Ne2 Nxd3 (23... e5))) 17. Bg3 Bxg3 18. hxg3 Qd6 19. Nf3 (19. Bb1 e5 20. dxe5 Qxe5) 19... e5 (19... Rae8 20. Re1 e5 21. dxe5 Nxe5 22. Nxe5 Rxe5 23. Rxe5 Qxe5 24. Qd2 (24. Be2 d4) (24. Nxd5 Nxd5 25. Bc4 Be6) 24... Ng4 25. Rf1 (25. Bc4 Be6 26. Bxd5 (26. Nxd5 Qh5 27. Ne7+ (27. Nf6+)) (26. f4 Qh5)) 25... Qh5) 20. dxe5 Nxe5 21. Nxe5 Qxe5 22. Re1 Qg5 *
+
+
+[Event "Tournoi LMC Fermé 06/25: B vs Antoine Lemonnier"]
+[Date "2026.06.21"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "C54"]
+[Opening "Italian Game: Classical Variation, Giuoco Pianissimo"]
+[StudyName "Tournoi LMC Fermé 06/25"]
+[ChapterName "B vs Antoine Lemonnier"]
+[ChapterURL "https://lichess.org/study/ll6MzKVC/gdvKYXy2"]
+[Annotator "https://lichess.org/@/timoruu"]
+[UTCDate "2026.06.21"]
+[UTCTime "10:40:21"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 5. d3 d6 6. O-O h6 7. Re1 O-O 8. h3 Be6 9. Bxe6 fxe6 10. b4 Bb6 11. a4 a5 12. b5 Ne7 13. Nbd2 Ng6 14. Nc4 Bc5 15. Bd2 Nh5 (15... Bb6) 16. d4 exd4 17. cxd4 Bb4 18. Bxb4 axb4 19. Ncd2 Nhf4 20. Re3 d5 21. e5 Qe7 22. a5 (22. Qc2 Rac8 23. g3 Nxh3+ 24. Kg2 Nhf4+ 25. gxf4 Nxf4+ 26. Kf1) 22... c5 23. bxc6 bxc6 24. Nb3 Rfb8 25. Qc2 Qe8 (25... Nf8 26. Kh2) 26. Kh2 Nf8 27. Ne1 (27. g3) 27... Rb5 28. g3 N4g6 29. Nd3 Ne7 30. Ree1 (30. Rf3 Qg6 31. Qd2 Nd7 32. a6 (32. Nf4 Qf7 (32... Qe4 33. Re3 Qf5 34. Qe2 Qf7 35. Rf3 Nf5 36. Qd3 Nf8 (36... g6))) 32... Nb6) (30. Ndc5 Nf5 31. Rf3 (31. Ree1 Nd7) 31... Ra7 (31... Ne7 32. Qd2 Rbb8 33. a6 (33. Ra4)) (31... Nd7 32. Nxe6 Qxe6 33. Qxf5 Qxf5 34. Rxf5 c5 35. e6 c4 36. exd7 cxb3 37. Re1 Rbb8 38. Rxd5 Rd8 39. Rb1)) 30... Nd7 31. Rec1 (31. Ndc5) 31... Ra6 32. Qd2 Qf8 33. Ra4 (33. Kg2 Qf5 34. Ra4 (34. Nxb4 Ra8 35. a6 Qe4+ 36. Kh2 Nf5 37. Nd3 Rbb8 38. Ndc5 Nxc5 39. Nxc5) 34... Nb6 35. Rxb4 Nc4 36. Qe1 Qe4+ (36... Rxb4 37. Nxb4 Nxa5 38. Nxa6 (38. Nc5 Ra8 (38... Ra7 39. Ra1 Nc8 40. Nxd5) 39. Ra1) 38... Nxb3)) (33. Qf4 Qxf4 34. Nxf4 c5 35. dxc5) (33. f4 Nf5 (33... h5 34. Qe2 g6 35. Ra2 (35. Qd2 Qf5 36. Nf2 c5 (36... Qf7)))) (33. Ra2) (33. Nxb4) (33. Nf4 Qf7 34. Qe2) 33... Nb6 34. Ra2 (34. Rxb4 Nc4 35. Qe1 (35. Rbxc4) (35. Qe2 Nf5 (35... Rxb4) (35... Nxa5 36. Rxb5 cxb5 37. Nbc5 Rc6 38. Ra1 Nc4 39. Ra7)) 35... Rxb4 (35... Nxa5 36. Rxb5 cxb5 37. Nxa5 Rxa5) (35... Qf5 36. Rxb5 cxb5 37. Ndc5 Nxa5 38. Nxa5 (38. Nxa6 Nxb3 39. Rd1 Qc2 (39... Nc6 40. Qe3 Qc2 41. Rd3 Nba5 42. Nc5 Nc4 43. Qf4 N4xe5 44. Nxe6) 40. Nb4))) 34... Nc4 35. Qf4 (35. Qe1) (35. Qe2 Nxa5 36. Nbc5) 35... Qxf4 36. gxf4 Nxa5 37. Nxa5 b3 (37... Rbxa5 38. Rxa5 Rxa5 39. Nxb4) 38. Rb2 Raxa5 39. Nc5 Ra2 40. Rcb1 (40. Rxb3 Rxb3 41. Nxb3 Rxf2+ 42. Kg3 Rb2) 40... Kf7 (40... Rxb2 41. Rxb2 Kf7) 41. Rxb3 Rxf2+ 42. Kg3 (42. Kg1 Rxf4 (42... Rxb3 43. Rxb3 Rxf4 44. Rb7 (44. Rb4 Nf5 45. Rb7+ Kg6 46. Nxe6 Nxd4 (46... Rh4 47. Rb6)))) 42... Rc2 43. Rxb5 Nf5+ 44. Kg4 cxb5 45. Rxb5 Nxd4 46. Rb7+ Kg6 *
+
+
+[Event "Tournoi LMC Fermé 06/25: Chapitre : 4"]
+[Date "2026.06.21"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "A07"]
+[Opening "King's Indian Attack, with e6"]
+[StudyName "Tournoi LMC Fermé 06/25"]
+[ChapterName "Chapitre : 4"]
+[ChapterURL "https://lichess.org/study/ll6MzKVC/DrpHsAGJ"]
+[Annotator "https://lichess.org/@/timoruu"]
+[UTCDate "2026.06.21"]
+[UTCTime "14:41:35"]
+
+1. Nf3 { [%eval 0.1] } 1... e6 { [%eval 0.14] } 2. g3 { [%eval 0.1] } 2... Nf6 { [%eval 0.12] } 3. Bg2 { [%eval 0.19] } 3... d5 { [%eval 0.15] } 4. d3 { [%eval 0.0] } 4... Be7 { [%eval 0.0] } 5. O-O { [%eval 0.0] } 5... O-O { [%eval 0.0] } (5... c5 6. c4 (6. Nbd2) (6. e4 Nc6) 6... Nc6 7. cxd5 Nxd5 8. d4) 6. a4 { [%eval 0.0] } (6. e4) (6. Bf4 c5 (6... b5 7. c4 (7. a3) 7... bxc4 8. dxc4) 7. e4 (7. a4 Nc6) 7... b5 (7... Nc6) 8. Nbd2 Bb7 9. c3 a5 10. a4 b4 11. Re1 bxc3 12. bxc3 Nc6 13. Ne5 (13. Qc2) (13. Rb1 Ba6 14. Qc2 dxe4 15. dxe4 Bd3 16. Qa2 Bxb1 17. Rxb1 Nh5 18. Be3 Rb8 19. Re1 Qd3 20. Bf1 (20. Rc1 Nf6 21. Bf4 Rbd8 22. Bf1 Qd7 23. Bb5 Qb7 24. Rb1 Nh5 25. Be3 Nf6 26. Bf4 e5 27. Nxe5 (27. Bf1 Qc7 28. Be3 Ng4))) 13... Nxe5 14. Bxe5 Nd7 15. Bf4 e5) 6... c5 { [%eval 0.03] } 7. Bf4 { [%eval 0.0] } (7. e4 Nc6 8. Bf4 dxe4) 7... Nc6 { [%eval 0.0] } (7... Nh5) 8. Ne5 { [%eval 0.01] } (8. e4) (8. Re1) 8... Nxe5 { [%eval 0.16] } 9. Bxe5 { [%eval 0.11] } 9... Bd7 { [%eval 0.1] } (9... Nd7 10. Bc3 d4) (9... b6) 10. e4 { [%eval 0.11] } 10... Bc6 { [%eval 0.09] } 11. Nc3 { [%eval -0.28] } (11. Qe2 Nd7 12. Bf4 d4 13. e5 (13. b3 e5) 13... Bxg2 14. Kxg2 Nb6) 11... d4 { [%eval -0.26] } (11... dxe4 12. Nxe4 Nxe4 13. Bxe4 Bxe4 14. dxe4 Qxd1 15. Rfxd1 Rfd8) 12. Bxf6 { [%eval -0.29] } 12... Bxf6 { [%eval -0.31] } 13. Nb1 { [%eval -0.24] } 13... b6 { [%eval -0.11] } (13... Qd7 14. b3 c4 15. dxc4 d3 16. Ra2) (13... e5 14. Nd2 (14. Bh3) 14... Qd7 15. b3 (15. Nc4) 15... Bd8) 14. Nd2 { [%eval -0.09] } 14... a6 { [%eval -0.05] } 15. f4 { [%eval -0.14] } 15... b5?! { [%eval 0.87] } { Inaccuracy. e5 was best. } (15... e5 16. Nc4 Qc7 17. fxe5 Bxe5 18. Nxe5 Qxe5 19. Qf3 Rae8 20. Qf4 f6 21. b3) 16. e5 { [%eval 0.78] } 16... Bxg2 { [%eval 0.71] } 17. Kxg2 { [%eval 0.7] } 17... Qd5+ { [%eval 0.93] } (17... Be7 18. Qf3 Qc7) 18. Qf3 { [%eval 0.94] } 18... Qxf3+ { [%eval 1.15] } 19. Kxf3 { [%eval 1.06] } 19... Be7 { [%eval 1.23] } 20. Ra2 { [%eval 1.11] } 20... Rfc8 { [%eval 1.58] } 21. Rfa1?! { [%eval 0.89] } { Inaccuracy. axb5 was best. } (21. axb5 axb5 22. Rfa1 Rxa2 23. Rxa2 c4 24. Ke2 c3 25. bxc3 dxc3 26. Nb3 h5) 21... Rab8?? { [%eval 2.82] } { Blunder. b4 was best. } (21... b4 22. Nc4 (22. b3 g6 23. Nc4 Rab8 24. a5) (22. Rg1 h5 23. Raa1 g6 24. h3 Kg7 25. Ke4 Rh8 26. Raf1 Rag8 27. Rh1)) 22. axb5 { [%eval 2.6] } 22... axb5 { [%eval 2.53] } 23. Ra7 { [%eval 2.71] } 23... Bf8 { [%eval 2.69] } 24. b3?! { [%eval 1.94] } { Inaccuracy. Ne4 was best. } (24. Ne4 c4 25. Nd6 Bxd6 (25... Rc6 26. Nxf7 b4 27. dxc4 Rxc4 28. Ng5 Rc6 29. R1a6 Rxa6) 26. exd6 Rd8 27. R1a6 (27. d7)) 24... c4 { [%eval 1.86] } 25. bxc4 { [%eval 1.9] } (25. Ne4) 25... Bb4 { [%eval 1.72] } 26. Ke2 { [%eval 1.27] } 26... Bxd2 { [%eval 1.73] } 27. Kxd2 { [%eval 1.58] } 27... bxc4 { [%eval 1.42] } 28. dxc4 { [%eval 1.36] } 28... g6?? { [%eval 3.42] } { Blunder. Rxc4 was best. } (28... Rxc4 29. Ra8 Rbc8 (29... Rf8 30. R1a4) (29... Rcc8 30. Rxb8 Rxb8 31. Kd3 Kf8 32. Ra4 f6 33. exf6 gxf6 34. Kxd4) 30. Rxc8+ Rxc8 31. Ra4 f6 32. Rxd4 fxe5 33. fxe5 Kf7 34. c4 Ke7 35. Kd3 Ra8 (35... h6 36. Rd6 Rc7 37. Kd4 Ra7 38. c5 (38. Rb6 Rd7+) 38... Ra4+ 39. Kc3)) *
+
+
+[Event "Tournoi LMC Fermé 06/25: Chapitre : 5"]
+[Date "2026.06.21"]
+[Result "*"]
+[Variant "Standard"]
+[ECO "B22"]
+[Opening "Sicilian Defense: Alapin Variation"]
+[StudyName "Tournoi LMC Fermé 06/25"]
+[ChapterName "Chapitre : 5"]
+[ChapterURL "https://lichess.org/study/ll6MzKVC/sIGf9yUz"]
+[Annotator "https://lichess.org/@/timoruu"]
+[UTCDate "2026.06.21"]
+[UTCTime "17:34:45"]
+
+1. e4 { [%eval 0.18] } 1... c5 { [%eval 0.32] } 2. c3 { [%eval 0.0] } 2... e6 { [%eval 0.25] } 3. d4 { [%eval 0.28] } 3... d5 { [%eval 0.27] } 4. exd5 { [%eval 0.14] } 4... Qxd5 { [%eval 0.14] } 5. Nf3 { [%eval 0.11] } 5... Nc6 { [%eval 0.25] } 6. Na3 { [%eval 0.26] } 6... Nf6 { [%eval 0.15] } 7. Be3 { [%eval 0.09] } 7... cxd4 { [%eval 0.12] } 8. Nb5 { [%eval 0.42] } 8... Qd8 { [%eval 0.43] } 9. Nbxd4 { [%eval 0.33] } 9... Nxd4 { [%eval 0.62] } 10. Bxd4 { [%eval 0.63] } 10... Be7 { [%eval 0.57] } 11. Bd3 { [%eval 0.65] } 11... O-O { [%eval 0.58] } 12. Qc2 { [%eval 0.59] } (12. Qe2) 12... h6 { [%eval 0.9] } (12... Qa5 13. Bxf6) 13. O-O-O { [%eval 0.88] } 13... Qa5 { [%eval 0.89] } 14. Kb1 { [%eval 0.94] } 14... b5 { [%eval 0.84] } 15. Ne5 { [%eval 0.45] } (15. Qe2 b4 (15... Bb7 16. Bxb5)) 15... Bb7 { [%eval 0.46] } 16. f4 { [%eval 0.0] } (16. Rhg1) 16... Rac8 { [%eval 0.49] } 17. Rhf1? { [%eval -0.68] } { Mistake. Qe2 was best. } (17. f5 Bd5 18. b3) (17. Qe2 b4 18. Ng6 Rfe8 19. Nxe7+ Rxe7 20. cxb4 Qxb4 21. Ka1 Bd5 22. Bb1 Rd7) 17... Rfd8 { [%eval -0.68] } 18. Qe2 { [%eval -0.69] } 18... b4 { [%eval -0.69] } (18... Rxd4 19. cxd4 Bd5 20. b3 Ba3) 19. f5? { [%eval -2.43] } { Mistake. Qe1 was best. } (19. Qe1 bxc3 20. Bxc3 Qc5 21. Qe2 Qb6 22. Ka1 Rxd3 23. Nxd3 Ne4 24. Rc1 Qa6) 19... bxc3 { [%eval -2.31] } (19... Bd5 20. c4) (19... exf5) 20. fxe6 { [%eval -2.2] } 20... fxe6?? { [%eval 0.98] } { Blunder. c2+ was best. } (20... c2+ 21. Bxc2 Rxc2 22. exf7+ Kh7 (22... Kh8 23. Ng6+ Kh7 24. Qxe7 Rxd4 25. Rxd4) 23. Qe3 Be4 24. Ka1 Qd5 25. g4 Rd6 26. a3) 21. Ng6 { [%eval 1.19] } 21... Rxd4? { [%eval 2.61] } { Mistake. Kf7 was best. } (21... Kf7 22. Nf4 Be4 23. Bxc3 Qa4 24. g3 Kg8 25. Ka1 Rd6 26. Bb5 Rxd1+ 27. Rxd1) 22. Nxe7+ { [%eval 2.52] } (22. Qxe6+ Kh7 23. Nf8+ Kh8) 22... Kh8 { [%eval 2.66] } 23. Nxc8 { [%eval 2.5] } 23... Bxc8?! { [%eval 3.37] } { Inaccuracy. Bd5 was best. } (23... Bd5 24. a3 cxb2 25. Qxb2 Qd8 26. Qxd4 Ba2+ 27. Kxa2 Qxd4 28. Ne7 g5 29. Rfe1) 24. Bg6?? { [%eval 1.39] } { Blunder. Qc2 was best. } (24. Rc1 Bb7 25. Rxc3) (24. Qc2 Rd8 (24... Nd5) (24... Ba6 25. Bxa6 Qxa6) (24... e5 25. Qxc3 Qd8 26. Bc2 Ba6 27. Rxd4 exd4 28. Rd1 d3 29. Bxd3 Ne4 30. Qc2 Nf2 31. Qxf2 Bxd3+ 32. Ka1 Qc8 33. Qd2 Bb5) 25. Qxc3 Qxc3 26. bxc3 Nd5 27. Rd2 Nxc3+ 28. Kb2 Nd5 29. Bg6 Kg8) (24. Bc2) 24... Ba6 { [%eval 1.45] } (24... Rb4 25. b3) (24... Rxd1+ 25. Rxd1 (25. Qxd1 Nd5 (25... Qb4)) 25... Nd5 26. Qc4 (26. Rf1 Qb4) 26... Ba6 27. Qc6) 25. Qxe6?? { [%eval -4.03] } { Blunder. Qc2 was best. } (25. Bd3 Bxd3+ (25... Bb7 26. Qxe6 Bd5 27. Qc8+ Bg8 28. Qxc3 Qxa2+ 29. Kc1 Qa1+) 26. Rxd3) (25. Qe3 Rb4) (25. Qc2 e5 26. bxc3 Rxd1+ 27. Rxd1 Bc4 28. Bd3 Bg8 29. c4 Ng4 30. Rc1 Qc5) 25... Bc4 { [%eval -3.95] } 26. Qc8+ { [%eval -4.17] } 26... Ng8 { [%eval -3.45] } 27. Qb8?! { [%eval -5.24] } { Inaccuracy. Kc2 was best. } (27. a3 Qb6) (27. Kc2 Qxa2 28. Kxc3 Ba6 (28... Rh4 29. Qf5 Qb3+ 30. Kd2 Qxb2+ 31. Qc2 Qd4+ 32. Bd3 Bxd3 33. Qxd3 Qxd3+ 34. Kxd3 Rxh2 35. Rf2 Nf6 36. Ra1) 29. Qxg8+ Kxg8 30. Bf7+ Qxf7 31. Rxf7 Rxd1 32. Rxa7 Bf1) 27... Qxa2+ { [%eval -5.27] } 28. Kc2 { [%eval -5.42] } 28... cxb2 { [%eval -5.59] } 29. Kc3 { [%eval -5.62] } (29. Qxb2 Bb3+ 30. Kc3 (30. Kc1 Qxb2+ 31. Kxb2)) 29... Rg4 { [%eval -5.39] } 30. Rf2 { [%eval -6.63] } 30... Qa3+ { [%eval -6.6] } (30... Rxg6 31. Rxb2 Qa3+ 32. Kxc4 Qa4+) 31. Kc2 (31. Kd2) 31... Qa4+ 32. Kxb2 *
+
+

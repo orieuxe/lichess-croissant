@@ -40,40 +40,50 @@ async function main() {
   saveManifest(manifest);
   console.log(`Téléchargé : downloaded/${filename}`);
 
-  const ffeUrl = await ask("Lien fiche FFE (vide = skip) : ");
   let games = splitGames(readFileSync(`downloaded/${filename}`, "utf8"));
 
-  if (ffeUrl.trim()) {
+  let match: { fiche: Awaited<ReturnType<typeof fetchFiche>>; rounds: Awaited<ReturnType<typeof fetchRounds>>["rounds"] } | null = null;
+  while (true) {
+    const ffeUrl = await ask("Lien fiche FFE (vide = skip) : ");
+    if (!ffeUrl.trim()) break;
+
     const fiche = await fetchFiche(ffeUrl.trim());
 
     if (!fiche.resultsLinks.Ga) {
       console.warn(
-        `ALERTE: pas de "Grille Américaine" pour ce tournoi (probablement fermé/round-robin, formats dispo: ${Object.keys(fiche.resultsLinks).join(", ")}) — enrichissement rondes/adversaires non supporté, skip.`,
+        `ALERTE: pas de "Grille Américaine" pour ce tournoi (probablement fermé/round-robin, formats dispo: ${Object.keys(fiche.resultsLinks).join(", ")}) — enrichissement rondes/adversaires non supporté.`,
       );
-    } else {
-      const { rounds } = await fetchRounds(fiche.resultsLinks.Ga, FFE_PLAYER_NAME);
-
-      if (games.length !== fiche.numRounds) {
-        console.warn(
-          `ALERTE: ${games.length} parties téléchargées vs ${fiche.numRounds} rondes annoncées sur la FFE — enrichissement rondes/adversaires ignoré.`,
-        );
-      } else {
-        games = games.map((game, i) => {
-          const r = rounds[i];
-          let g = setTag(game, "Round", String(r.round));
-          if (r.color && r.opponentName) {
-            const ourSide = r.color === "B" ? "White" : "Black";
-            const oppSide = r.color === "B" ? "Black" : "White";
-            // ponytail: FFE name kept as-is ("NOM Prénom"), not reformatted to "Nom, Prénom"
-            if (!getTag(g, oppSide)) g = setTag(g, oppSide, r.opponentName);
-            if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
-              g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ""));
-            if (!getTag(g, ourSide)) g = setTag(g, ourSide, FFE_PLAYER_NAME);
-          }
-          return g;
-        });
-      }
+      continue;
     }
+
+    const { rounds } = await fetchRounds(fiche.resultsLinks.Ga, FFE_PLAYER_NAME);
+    if (games.length !== fiche.numRounds) {
+      console.warn(
+        `ALERTE: ${games.length} parties téléchargées vs ${fiche.numRounds} rondes annoncées sur la FFE (mauvais lien ? mauvais tournoi ?).`,
+      );
+      continue;
+    }
+
+    match = { fiche, rounds };
+    break;
+  }
+
+  if (match) {
+    const { fiche, rounds } = match;
+    games = games.map((game, i) => {
+      const r = rounds[i];
+      let g = setTag(game, "Round", String(r.round));
+      if (r.color && r.opponentName) {
+        const ourSide = r.color === "B" ? "White" : "Black";
+        const oppSide = r.color === "B" ? "Black" : "White";
+        // ponytail: FFE name kept as-is ("NOM Prénom"), not reformatted to "Nom, Prénom"
+        if (!getTag(g, oppSide)) g = setTag(g, oppSide, r.opponentName);
+        if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
+          g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ""));
+        if (!getTag(g, ourSide)) g = setTag(g, ourSide, FFE_PLAYER_NAME);
+      }
+      return g;
+    });
 
     const category = await classifyCadence(fiche.cadenceText, askCategory);
     games = games.map((g) => setTag(g, "TimeControl", fiche.cadenceText));
