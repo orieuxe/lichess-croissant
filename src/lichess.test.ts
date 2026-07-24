@@ -15,7 +15,7 @@ writeFileSync(
 );
 
 process.chdir(dir);
-const { loadManifest, studiesNotDownloaded, extractChapterId }
+const { loadManifest, studiesNotDownloaded, extractChapterId, loadIgnored, ignoreStudy }
   = await import('./lichess.ts');
 
 assert.equal(
@@ -39,5 +39,22 @@ const remaining = studiesNotDownloaded(
   manifest,
 );
 assert.deepEqual(remaining, [{ id: 'def456', name: 'New one' }]);
+
+assert.deepEqual(loadIgnored(), []);
+ignoreStudy('def456');
+assert.deepEqual(loadIgnored(), ['def456']);
+ignoreStudy('def456');
+assert.deepEqual(loadIgnored(), ['def456'], 'no duplicate on re-ignore');
+
+const remainingAfterIgnore = studiesNotDownloaded(
+  [
+    { id: 'abc123', name: 'Already have' },
+    { id: 'def456', name: 'Ignored one' },
+    { id: 'ghi789', name: 'Still new' },
+  ],
+  manifest,
+  loadIgnored(),
+);
+assert.deepEqual(remainingAfterIgnore, [{ id: 'ghi789', name: 'Still new' }]);
 
 console.log('lichess.test.ts OK');

@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 const API = 'https://lichess.org/api';
 const DOWNLOADED_DIR = 'downloaded';
 const MANIFEST_PATH = 'manifest.json';
+const IGNORED_PATH = 'ignored.json';
 
 export interface StudyRef {
   id: string;
@@ -104,6 +105,19 @@ function bootstrapManifest(): Record<string, string> {
 export function studiesNotDownloaded(
   studies: StudyRef[],
   manifest: Record<string, string>,
+  ignored: string[] = [],
 ): StudyRef[] {
-  return studies.filter(s => !(s.id in manifest));
+  const ignoredSet = new Set(ignored);
+  return studies.filter(s => !(s.id in manifest) && !ignoredSet.has(s.id));
+}
+
+export function loadIgnored(): string[] {
+  if (!existsSync(IGNORED_PATH)) return [];
+  return JSON.parse(readFileSync(IGNORED_PATH, 'utf8'));
+}
+
+export function ignoreStudy(id: string): void {
+  const ignored = loadIgnored();
+  if (!ignored.includes(id)) ignored.push(id);
+  writeFileSync(IGNORED_PATH, JSON.stringify(ignored, null, 2) + '\n');
 }
