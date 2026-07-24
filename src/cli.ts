@@ -89,9 +89,11 @@ function desiredChapterTitle(g: string, ourName: string): string {
   return `${letter} vs ${oppName} ${oppElo}`;
 }
 
-// Auto-commit+push only the data files this run touched — never src/, so an
+// Auto-commit only the data files this run touched — never src/, so an
 // in-progress code change on the branch can't get swept into a data commit.
-function commitGameData(filename: string, studyName: string) {
+// Push is a separate step (asked after) so a manual pgn tweak can happen
+// between commit and push without racing the auto-push.
+async function commitGameData(filename: string, studyName: string) {
   try {
     execFileSync('git', [
       'add', '-A', '--',
@@ -103,6 +105,14 @@ function commitGameData(filename: string, studyName: string) {
   }
   catch (err) {
     console.warn(`git commit sauté (${(err as Error).message.split('\n')[0]})`);
+    return;
+  }
+
+  const push = await ask(
+    'Push github maintenant (n = commit local seulement, tu push toi-même après avoir modifié le pgn si besoin) ? [O/n] ',
+  );
+  if (push.trim().toLowerCase().startsWith('n')) {
+    console.log('Pas de push — pense à le faire toi-même après tes modifs.');
     return;
   }
   try {
@@ -375,7 +385,7 @@ async function main() {
       );
       console.log(`    ${previewMoves(g, 24)}`);
     }
-    const confirm = await ask('\nSauvegarder (merge + manifest + push lichess + push github) ? [O/n] ');
+    const confirm = await ask('\nSauvegarder (merge + manifest + push lichess + commit github) ? [O/n] ');
     if (confirm.trim().toLowerCase().startsWith('n')) {
       console.log('Annulé, rien de sauvegardé.');
       console.log(`Study lichess : https://lichess.org/study/${study.id}`);
@@ -440,7 +450,7 @@ async function main() {
     // never leaves a study wrongly marked as done.
     manifest[study.id] = filename;
     saveManifest(manifest);
-    commitGameData(filename, study.name);
+    await commitGameData(filename, study.name);
   }
   else {
     console.log(
