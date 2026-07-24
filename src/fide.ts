@@ -1,4 +1,5 @@
 export interface FideCandidate {
+  id: number;
   name: string;
   federation: string;
   standard?: number;
@@ -8,6 +9,7 @@ export interface FideCandidate {
 export interface ResolvedFideName {
   name: string;
   title?: string;
+  fideId?: string;
 }
 
 export async function searchFidePlayers(query: string): Promise<FideCandidate[]> {
@@ -52,7 +54,7 @@ export async function resolveFideName(
   try {
     const candidates = await searchFidePlayers(ffeName);
     const matched = matchFideName(ffeName, candidates);
-    if (matched) return { name: matched.name, title: matched.title };
+    if (matched) return { name: matched.name, title: matched.title, fideId: String(matched.id) };
   }
   catch {
     // network hiccup: fall through to asking for a manual FIDE id
@@ -63,7 +65,7 @@ export async function resolveFideName(
 
   try {
     const player = await getFidePlayer(id);
-    return player ? { name: player.name, title: player.title } : { name: ffeName };
+    return player ? { name: player.name, title: player.title, fideId: String(player.id) } : { name: ffeName };
   }
   catch {
     return { name: ffeName };

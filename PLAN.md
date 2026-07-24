@@ -11,7 +11,7 @@
 - Cadence classée auto par seuil (≥60min = classique), table `cadence-map.json` en fallback si texte illisible
 - Identité : `FIDE_ID` dans `.env`, fetché une fois au démarrage (`getFidePlayer`) → nom + titre + nom format FFE dérivé pour matcher la grille FFE, plus besoin de `FFE_PLAYER_NAME`
 - Noms adversaire reformatés "Nom, Prénom" + titre FIDE via `lichess.org/api/fide/player`, demande l'ID FIDE si pas de match clair
-- Tags posés : Round, Event (choix titre FFE / nom study / libre), EventURL (lien FFE, local uniquement), White/Black, WhiteElo/BlackElo (adversaire + soi), WhiteTitle/BlackTitle, Result (dérivé +/=/- FFE), TimeControl (texte cadence brut)
+- Tags posés : Round, Event (choix titre FFE / nom study / libre), EventURL (lien FFE, local uniquement), White/Black, WhiteElo/BlackElo (adversaire + soi), WhiteTitle/BlackTitle, WhiteFideId/BlackFideId (adversaire + soi, whitelist lichess), Result (dérivé +/=/- FFE), TimeControl (texte cadence brut)
 - UTCDate/UTCTime/ChapterName supprimés du PGN local
 - Récap avant sauvegarde (titre round + adversaire + elo + résultat + coups) avec confirmation `[O/n]` — annule tout si refusé (rien écrit, rien pushé)
 - Push des tags vers lichess (`POST /api/study/{id}/{chapterId}/tags`) — whitelist stricte côté lichess (voir Limitation connue), `Event` = lien FFE direct côté push (EventURL non supporté par l'API)

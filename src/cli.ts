@@ -52,7 +52,7 @@ async function askOpponentFideId(): Promise<ResolvedFideName> {
   const id = (await ask('ID FIDE de l\'adversaire (vide = inconnu) : ')).trim();
   if (!id) return { name: '?' };
   const player = await getFidePlayer(id);
-  return player ? { name: player.name, title: player.title } : { name: '?' };
+  return player ? { name: player.name, title: player.title, fideId: String(player.id) } : { name: '?' };
 }
 
 // FFE round-robin pairing pages show "X - X" until the organizer enters the
@@ -109,7 +109,7 @@ async function main() {
   if (!FIDE_ID) throw new Error('FIDE_ID not set (check .env)');
   const ownPlayer = await getFidePlayer(FIDE_ID);
   if (!ownPlayer) throw new Error(`FIDE id ${FIDE_ID} not found`);
-  const our: ResolvedFideName = { name: ownPlayer.name, title: ownPlayer.title };
+  const our: ResolvedFideName = { name: ownPlayer.name, title: ownPlayer.title, fideId: String(ownPlayer.id) };
   // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
   const ffeMatchName = ownPlayer.name.replace(',', '');
 
@@ -337,11 +337,15 @@ async function main() {
         g = setTag(g, oppSide, opponent.name);
         if (opponent.title && !getTag(g, `${oppSide}Title`))
           g = setTag(g, `${oppSide}Title`, opponent.title);
+        if (opponent.fideId && !getTag(g, `${oppSide}FideId`))
+          g = setTag(g, `${oppSide}FideId`, opponent.fideId);
         if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
           g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ''));
         g = setTag(g, ourSide, our.name);
         if (our.title && !getTag(g, `${ourSide}Title`))
           g = setTag(g, `${ourSide}Title`, our.title);
+        if (our.fideId && !getTag(g, `${ourSide}FideId`))
+          g = setTag(g, `${ourSide}FideId`, our.fideId);
         if (ourEloValue && !getTag(g, `${ourSide}Elo`))
           g = setTag(g, `${ourSide}Elo`, ourEloValue);
       }
@@ -398,6 +402,8 @@ async function main() {
         'BlackElo',
         'WhiteTitle',
         'BlackTitle',
+        'WhiteFideId',
+        'BlackFideId',
         'TimeControl',
       ]) {
         const value = getTag(g, tag);
