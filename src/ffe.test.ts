@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fetchFiche, fetchRounds, fetchClosedRounds } from './ffe.ts';
+import { fetchFiche, fetchRounds, fetchClosedRounds, parseClosedResult } from './ffe.ts';
 
 const fiche = readFileSync(
   new URL('./fixtures/ffe_fiche.html', import.meta.url),
@@ -95,12 +95,20 @@ assert.equal(closed.rounds.length, 5);
 assert.deepEqual(
   closed.rounds.map(r => [r.round, r.color, r.result, r.opponentName, r.opponentElo]),
   [
-    [1, 'N', null, 'Samuel DUBUISSON', '2173 F'],
-    [2, 'N', null, 'Valentin BORNHOFEN', '2164 F'],
+    [1, 'N', '=', 'Samuel DUBUISSON', '2173 F'],
+    [2, 'N', '=', 'Valentin BORNHOFEN', '2164 F'],
     [3, 'B', '-', 'Antoine LEMONNIER', '2127 F'],
-    [4, 'N', null, 'Arman SARKISIAN', '2163 F'],
+    [4, 'N', '=', 'Arman SARKISIAN', '2163 F'],
     [5, 'B', '-', 'Hillel TOLEDO', '2301 F'],
   ],
 );
+
+// draws: FFE renders "X - X" on the closed-tournament pairing page, "½ - ½"
+// or plain "1/2 - 1/2" elsewhere — all three must resolve to '=', not null.
+assert.equal(parseClosedResult('X - X', true), '=');
+assert.equal(parseClosedResult('½ - ½', true), '=');
+assert.equal(parseClosedResult('1/2 - 1/2', false), '=');
+assert.equal(parseClosedResult('1 - 0', true), '+');
+assert.equal(parseClosedResult('1 - 0', false), '-');
 
 console.log('ffe.test.ts OK', rounds, closed.rounds);

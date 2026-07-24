@@ -45,6 +45,20 @@ async function askFideId(ffeName: string): Promise<string> {
   );
 }
 
+// FFE round-robin pairing pages show "X - X" until the organizer enters the
+// result by hand, even for games already finished/relayed on lichess — so
+// fetchClosedRounds returns result: null and Result stays unset/"*".
+async function askResult(title: string): Promise<'+' | '=' | '-' | null> {
+  const answer = await ask(
+    `Résultat FFE pas encore publié pour ${title} — [1] gagné, [2] perdu, [n] nul, vide = laisser "*" : `,
+  );
+  const choice = answer.trim().toLowerCase();
+  if (choice === '1') return '+';
+  if (choice === '2') return '-';
+  if (choice === 'n') return '=';
+  return null;
+}
+
 // "B/N vs Nom, Prénom elo" — the chapter title convention, used both in the
 // recap and next to the lichess push log (can't be pushed, see PLAN.md).
 function desiredChapterTitle(g: string, ourName: string): string {
@@ -195,10 +209,14 @@ async function main() {
       if (r.color && r.opponentName) {
         const ourSide = r.color === 'B' ? 'White' : 'Black';
         const oppSide = r.color === 'B' ? 'Black' : 'White';
+        const currentResult = getTag(g, 'Result');
         if (r.result) {
           const result = resultFromFfe(r.result, ourSide);
-          const currentResult = getTag(g, 'Result');
           if (!currentResult || currentResult === '*') g = setTag(g, 'Result', result);
+        }
+        else if (!currentResult || currentResult === '*') {
+          const manual = await askResult(`${r.round} - ${r.color}/${r.opponentName}`);
+          if (manual) g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
         }
         if (!opponentNameCache.has(r.opponentName)) {
           opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));

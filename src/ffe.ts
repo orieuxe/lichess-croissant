@@ -133,12 +133,16 @@ function normalizeLooseName(name: string): string {
     .join(' ');
 }
 
-function parseClosedResult(raw: string, wasWhite: boolean): '+' | '=' | '-' | null {
-  const m = raw.match(/^(X|\d|½)\s*-\s*(X|\d|½)$/);
-  if (!m || m[1] === 'X') return null;
+// FFE renders draws as "X - X" on this page (confirmed against the Berger
+// cross-table on a finished tournament: every "X - X" pairing scored ½ there)
+// — same meaning as "½ - ½" / "1/2 - 1/2", just a different glyph choice.
+export function parseClosedResult(raw: string, wasWhite: boolean): '+' | '=' | '-' | null {
+  const m = raw.match(/^(X|\d|½|1\/2)\s*-\s*(X|\d|½|1\/2)$/);
+  if (!m) return null;
+  const isDraw = (s: string) => s === '½' || s === '1/2' || s === 'X';
   const [whiteScore, blackScore] = [m[1], m[2]];
   const ourScore = wasWhite ? whiteScore : blackScore;
-  if (ourScore === '½') return '=';
+  if (isDraw(ourScore)) return '=';
   const oppScore = wasWhite ? blackScore : whiteScore;
   return ourScore > oppScore ? '+' : '-';
 }
