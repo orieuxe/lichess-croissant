@@ -173,20 +173,33 @@ async function main() {
       continue;
     }
 
-    while (games.length < fiche.numRounds) {
+    const byeRounds = new Set<number>();
+    while (games.length < fiche.numRounds - byeRounds.size) {
       const retry = await ask(
-        `\n${games.length} parties téléchargées, ${fiche.numRounds} rondes annoncées — ajoute les parties manquantes sur la study lichess puis Entrée pour réessayer (texte quelconque = abandonner ce lien) : `,
+        `\n${games.length} parties téléchargées, ${fiche.numRounds - byeRounds.size} rondes attendues — ajoute les parties manquantes sur la study lichess puis Entrée pour réessayer, numéro(s) de ronde non jouée (bye/forfait, virgule) si c'est ça, ou texte quelconque pour abandonner ce lien : `,
       );
+      const roundNumbers = retry.trim().match(/^[\d\s,]+$/)
+        ? retry.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !Number.isNaN(n))
+        : [];
+      if (roundNumbers.length) {
+        roundNumbers.forEach(n => byeRounds.add(n));
+        continue;
+      }
       if (retry.trim()) break;
       filename = await downloadStudy(study.id);
       games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
       console.log(`Retéléchargé : downloaded/${filename} (${games.length} parties)`);
     }
+    if (byeRounds.size) {
+      rounds = rounds.filter(r => !byeRounds.has(r.round));
+      console.log(`Rondes ${[...byeRounds].join(', ')} exclues (bye/forfait déclaré).`);
+    }
+    const expectedRounds = fiche.numRounds - byeRounds.size;
 
     let includedIndices = games.map((_, i) => i);
-    if (games.length > fiche.numRounds) {
+    if (games.length > expectedRounds) {
       console.log(
-        `\n${games.length} parties téléchargées, ${fiche.numRounds} rondes annoncées — laquelle exclure ?`,
+        `\n${games.length} parties téléchargées, ${expectedRounds} rondes attendues — laquelle exclure ?`,
       );
       games.forEach((g, i) => {
         const chapter = getTag(g, 'ChapterName') ?? getTag(g, 'Event') ?? '?';
@@ -204,9 +217,9 @@ async function main() {
       includedIndices = includedIndices.filter(i => !excluded.has(i));
     }
 
-    if (includedIndices.length !== fiche.numRounds) {
+    if (includedIndices.length !== expectedRounds) {
       console.warn(
-        `ALERTE: ${includedIndices.length} parties retenues vs ${fiche.numRounds} rondes annoncées sur la FFE (mauvais lien ? mauvais tournoi ?).`,
+        `ALERTE: ${includedIndices.length} parties retenues vs ${expectedRounds} rondes attendues (mauvais lien ? mauvais tournoi ?).`,
       );
       continue;
     }
