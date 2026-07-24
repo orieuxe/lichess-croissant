@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { splitGames, getTag, setTag, previewMoves } from './pgn.ts';
+import { splitGames, getTag, setTag, removeTag, previewMoves } from './pgn.ts';
 
 const sample = `[Event "A"]
 [Date "2025.01.01"]
@@ -24,6 +24,13 @@ assert.equal(getTag(withRound, 'Round'), '3');
 const reReplaced = setTag(withRound, 'Round', '4');
 assert.equal(getTag(reReplaced, 'Round'), '4');
 assert.equal((reReplaced.match(/\[Round /g) ?? []).length, 1);
+
+const withUtc = `[Event "A"]\n[UTCDate "2025.01.01"]\n[UTCTime "12:00:00"]\n[Date "2025.01.01"]\n\n1. e4 *`;
+const withoutUtc = removeTag(removeTag(withUtc, 'UTCDate'), 'UTCTime');
+assert.equal(getTag(withoutUtc, 'UTCDate'), null);
+assert.equal(getTag(withoutUtc, 'UTCTime'), null);
+assert.equal(getTag(withoutUtc, 'Date'), '2025.01.01');
+assert.equal(removeTag(withUtc, 'NotPresent'), withUtc);
 
 const annotated = `[Event "C"]
 

@@ -6,10 +6,12 @@ import {
   loadManifest,
   saveManifest,
   studiesNotDownloaded,
+  extractChapterId,
+  updateChapterTags,
 } from './lichess.ts';
 import { fetchFiche, fetchRounds } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
-import { splitGames, setTag, getTag, previewMoves } from './pgn.ts';
+import { splitGames, setTag, getTag, removeTag, previewMoves } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
 import { resolveFideName } from './fide.ts';
 
@@ -58,6 +60,7 @@ async function main() {
   let match: {
     fiche: Awaited<ReturnType<typeof fetchFiche>>;
     rounds: Awaited<ReturnType<typeof fetchRounds>>['rounds'];
+    ownElo: string;
     includedIndices: number[];
   } | null = null;
 
@@ -74,7 +77,7 @@ async function main() {
       continue;
     }
 
-    const { rounds } = await fetchRounds(
+    const { ownElo, rounds } = await fetchRounds(
       fiche.resultsLinks.Ga,
       FFE_PLAYER_NAME,
     );
@@ -107,19 +110,34 @@ async function main() {
       continue;
     }
 
-    match = { fiche, rounds, includedIndices };
+    match = { fiche, rounds, ownElo, includedIndices };
     break;
   }
 
   if (match) {
-    const { fiche, rounds, includedIndices } = match;
+    const { fiche, rounds, ownElo, includedIndices } = match;
     const ourName = await resolveFideName(FFE_PLAYER_NAME, askFideId);
+    const ourEloValue = ownElo.replace(/\s*F$/, '');
     const opponentNameCache = new Map<string, string>();
+
+    const eventAnswer = await ask(
+      `Event (vide = titre FFE "${fiche.title}", "s" = nom study "${study.name}", ou texte libre) : `,
+    );
+    const eventValue
+      = eventAnswer.trim() === ''
+        ? fiche.title
+        : eventAnswer.trim().toLowerCase() === 's'
+          ? study.name
+          : eventAnswer.trim();
 
     for (const [roundIdx, gameIdx] of includedIndices.entries()) {
       const r = rounds[roundIdx];
       let g = games[gameIdx];
       g = setTag(g, 'Round', String(r.round));
+      g = setTag(g, 'Event', eventValue);
+      g = removeTag(g, 'UTCDate');
+      g = removeTag(g, 'UTCTime');
+      g = removeTag(g, 'ChapterName');
       if (r.color && r.opponentName) {
         const ourSide = r.color === 'B' ? 'White' : 'Black';
         const oppSide = r.color === 'B' ? 'Black' : 'White';
@@ -131,6 +149,8 @@ async function main() {
         if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
           g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ''));
         if (!getTag(g, ourSide)) g = setTag(g, ourSide, ourName);
+        if (!getTag(g, `${ourSide}Elo`))
+          g = setTag(g, `${ourSide}Elo`, ourEloValue);
       }
       g = setTag(g, 'TimeControl', fiche.cadenceText);
       games[gameIdx] = g;
@@ -144,6 +164,31 @@ async function main() {
       includedIndices.map(i => games[i]),
     );
     console.log(`Fusionné dans ${merged}`);
+
+    console.log('\nMise à jour des chapitres sur lichess...');
+    for (const gameIdx of includedIndices) {
+      const g = games[gameIdx];
+      const chapterId = extractChapterId(g);
+      if (!chapterId) {
+        console.warn(`  chapitre introuvable pour la partie ${gameIdx + 1}, skip`);
+        continue;
+      }
+      const tags: Record<string, string> = { UTCDate: '', UTCTime: '', ChapterName: '' };
+      for (const tag of ['Round', 'Event', 'White', 'Black', 'WhiteElo', 'BlackElo', 'TimeControl']) {
+        const value = getTag(g, tag);
+        if (value) tags[tag] = value;
+      }
+      try {
+        await updateChapterTags(study.id, chapterId, tags);
+        console.log(`  ${chapterId} mis à jour`);
+      }
+      catch (err) {
+        console.warn(`  ${chapterId} échec: ${(err as Error).message}`);
+      }
+    }
+    console.log(
+      '(le titre du chapitre lui-même — "B/N vs Nom, Prénom elo" — ne peut pas être renommé via l\'API publique lichess, à faire à la main si besoin)',
+    );
   }
   else {
     console.log(

@@ -20,6 +20,11 @@ export function setTag(game: string, tag: string, value: string): string {
   return `${header}\n${line}${rest}`;
 }
 
+export function removeTag(game: string, tag: string): string {
+  const re = new RegExp(`^\\[${tag} ".*"\\]\\n?`, 'm');
+  return game.replace(re, '');
+}
+
 // ponytail: regex-based preview, not a real PGN move parser — good enough to
 // let a human eyeball "which chapter is this" during exclusion prompts.
 export function previewMoves(game: string, tokenCount = 14): string {
