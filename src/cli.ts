@@ -66,16 +66,18 @@ async function main() {
 
   let match: {
     fiche: Awaited<ReturnType<typeof fetchFiche>>;
+    ffeUrl: string;
     rounds: Awaited<ReturnType<typeof fetchRounds>>['rounds'];
     ownElo: string;
     includedIndices: number[];
   } | null = null;
 
   while (true) {
-    const ffeUrl = await ask('Lien fiche FFE (vide = skip) : ');
-    if (!ffeUrl.trim()) break;
+    const ffeUrlAnswer = await ask('Lien fiche FFE (vide = skip) : ');
+    if (!ffeUrlAnswer.trim()) break;
+    const ffeUrl = ffeUrlAnswer.trim();
 
-    const fiche = await fetchFiche(ffeUrl.trim());
+    const fiche = await fetchFiche(ffeUrl);
 
     if (!fiche.resultsLinks.Ga) {
       console.warn(
@@ -117,12 +119,12 @@ async function main() {
       continue;
     }
 
-    match = { fiche, rounds, ownElo, includedIndices };
+    match = { fiche, ffeUrl, rounds, ownElo, includedIndices };
     break;
   }
 
   if (match) {
-    const { fiche, rounds, ownElo, includedIndices } = match;
+    const { fiche, ffeUrl, rounds, ownElo, includedIndices } = match;
     const ourName = await resolveFideName(FFE_PLAYER_NAME, askFideId);
     const ourEloValue = ownElo.replace(/\s*F$/, '');
     const opponentNameCache = new Map<string, string>();
@@ -142,6 +144,7 @@ async function main() {
       let g = games[gameIdx];
       g = setTag(g, 'Round', String(r.round));
       g = setTag(g, 'Event', eventValue);
+      g = setTag(g, 'EventURL', ffeUrl);
       g = removeTag(g, 'UTCDate');
       g = removeTag(g, 'UTCTime');
       g = removeTag(g, 'ChapterName');
@@ -186,7 +189,7 @@ async function main() {
         continue;
       }
       const tags: Record<string, string> = { UTCDate: '', UTCTime: '', ChapterName: '' };
-      for (const tag of ['Round', 'Event', 'Result', 'White', 'Black', 'WhiteElo', 'BlackElo', 'TimeControl']) {
+      for (const tag of ['Round', 'Event', 'EventURL', 'Result', 'White', 'Black', 'WhiteElo', 'BlackElo', 'TimeControl']) {
         const value = getTag(g, tag);
         if (value) tags[tag] = value;
       }
