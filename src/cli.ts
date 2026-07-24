@@ -109,10 +109,12 @@ async function main() {
     if (!study) throw new Error('choix invalide');
   }
 
-  const filename = await downloadStudy(study.id);
+  console.log(`Study lichess : https://lichess.org/study/${study.id}`);
+
+  let filename = await downloadStudy(study.id);
   console.log(`Téléchargé : downloaded/${filename}`);
 
-  const games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
+  let games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
 
   let match: {
     fiche: Awaited<ReturnType<typeof fetchFiche>>;
@@ -123,9 +125,12 @@ async function main() {
   } | null = null;
 
   while (true) {
-    const ffeUrlAnswer = await ask('Lien fiche FFE (vide = skip) : ');
+    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = skip) : ');
     if (!ffeUrlAnswer.trim()) break;
-    const ffeUrl = ffeUrlAnswer.trim();
+    const raw = ffeUrlAnswer.trim();
+    const ffeUrl = /^\d+$/.test(raw)
+      ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`
+      : raw;
 
     const fiche = await fetchFiche(ffeUrl);
 
@@ -148,6 +153,16 @@ async function main() {
         `ALERTE: pas de "Grille Américaine" ni de "Pairing"+"Berger" pour ce tournoi (formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
       );
       continue;
+    }
+
+    while (games.length < fiche.numRounds) {
+      const retry = await ask(
+        `\n${games.length} parties téléchargées, ${fiche.numRounds} rondes annoncées — ajoute les parties manquantes sur la study lichess puis Entrée pour réessayer (texte quelconque = abandonner ce lien) : `,
+      );
+      if (retry.trim()) break;
+      filename = await downloadStudy(study.id);
+      games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
+      console.log(`Retéléchargé : downloaded/${filename} (${games.length} parties)`);
     }
 
     let includedIndices = games.map((_, i) => i);
@@ -222,12 +237,13 @@ async function main() {
           opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
         }
         const opponent = opponentNameCache.get(r.opponentName)!;
-        if (!getTag(g, oppSide)) g = setTag(g, oppSide, opponent.name);
+        // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
+        g = setTag(g, oppSide, opponent.name);
         if (opponent.title && !getTag(g, `${oppSide}Title`))
           g = setTag(g, `${oppSide}Title`, opponent.title);
         if (r.opponentElo && !getTag(g, `${oppSide}Elo`))
           g = setTag(g, `${oppSide}Elo`, r.opponentElo.replace(/\s*F$/, ''));
-        if (!getTag(g, ourSide)) g = setTag(g, ourSide, our.name);
+        g = setTag(g, ourSide, our.name);
         if (our.title && !getTag(g, `${ourSide}Title`))
           g = setTag(g, `${ourSide}Title`, our.title);
         if (!getTag(g, `${ourSide}Elo`))
@@ -238,6 +254,7 @@ async function main() {
     }
 
     const category = await classifyCadence(fiche.cadenceText, askCategory);
+    console.log(`\nCadence "${fiche.cadenceText}" -> ${category}`);
 
     console.log('\nRécap avant sauvegarde :');
     for (const gameIdx of includedIndices) {
@@ -302,18 +319,18 @@ async function main() {
     console.log(
       '(le titre du chapitre lui-même — "B/N vs Nom, Prénom elo" — ne peut pas être renommé via l\'API publique lichess, à faire à la main si besoin)',
     );
+
+    // ponytail: manifest only written once the flow reaches a deliberate
+    // end (merged) — not right after download — so an aborted/crashed run
+    // never leaves a study wrongly marked as done.
+    manifest[study.id] = filename;
+    saveManifest(manifest);
   }
   else {
     console.log(
-      'Pas de lien FFE, pas de merge (Round/adversaire/cadence manquants).',
+      'Pas de lien FFE, rien de sauvegardé — study pas marquée comme téléchargée, remets le lien FFE au prochain lancement.',
     );
   }
-
-  // ponytail: manifest only written once the flow reaches a deliberate
-  // end (merged, or explicitly skipped) — not right after download — so an
-  // aborted/crashed run never leaves a study wrongly marked as done.
-  manifest[study.id] = filename;
-  saveManifest(manifest);
 
   rl.close();
 }
