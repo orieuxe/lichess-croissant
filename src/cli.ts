@@ -12,7 +12,7 @@ import {
   loadIgnored,
   ignoreStudy,
 } from './lichess.ts';
-import { fetchFiche, fetchRounds, fetchClosedRounds } from './ffe.ts';
+import { fetchFiche, fetchRounds, fetchClosedRounds, type FicheTournoi, type RoundResult } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
 import {
   splitGames,
@@ -44,6 +44,15 @@ async function askFideId(ffeName: string): Promise<string> {
   return ask(
     `Pas de correspondance FIDE claire pour "${ffeName}" — ID FIDE (vide = garder tel quel) : `,
   );
+}
+
+// mode manuel: pas de nom connu du tout (chapitre pas parsable) — on demande
+// direct l'ID FIDE plutôt qu'un nom à chercher.
+async function askOpponentFideId(): Promise<ResolvedFideName> {
+  const id = (await ask('ID FIDE de l\'adversaire (vide = inconnu) : ')).trim();
+  if (!id) return { name: '?' };
+  const player = await getFidePlayer(id);
+  return player ? { name: player.name, title: player.title } : { name: '?' };
 }
 
 // FFE round-robin pairing pages show "X - X" until the organizer enters the
@@ -143,42 +152,84 @@ async function main() {
   let games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
 
   let match: {
-    fiche: Awaited<ReturnType<typeof fetchFiche>>;
+    fiche: FicheTournoi;
     ffeUrl: string;
-    rounds: Awaited<ReturnType<typeof fetchRounds>>['rounds'];
+    rounds: RoundResult[];
     ownElo: string;
     includedIndices: number[];
   } | null = null;
 
   while (true) {
-    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = skip) : ');
-    if (!ffeUrlAnswer.trim()) break;
-    const raw = ffeUrlAnswer.trim();
-    const ffeUrl = /^\d+$/.test(raw)
-      ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`
-      : raw;
+    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel/skip) : ');
 
-    const fiche = await fetchFiche(ffeUrl);
+    let fiche: FicheTournoi;
+    let ffeUrl = '';
+    let ownElo = '';
+    let rounds: RoundResult[];
 
-    let ownElo: string;
-    let rounds: Awaited<ReturnType<typeof fetchRounds>>['rounds'];
-    if (fiche.resultsLinks.Ga) {
-      ({ ownElo, rounds } = await fetchRounds(fiche.resultsLinks.Ga, ffeMatchName));
-    }
-    else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
-      // closed/round-robin tournament: no Grille Américaine, same data lives
-      // across the Pairing (round-by-round) and Berger (name→Elo) pages.
-      ({ ownElo, rounds } = await fetchClosedRounds(
-        fiche.resultsLinks.Pairing,
-        fiche.resultsLinks.Berger,
-        ffeMatchName,
-      ));
+    if (!ffeUrlAnswer.trim()) {
+      const manual = await ask(
+        'Pas de lien FFE — mode manuel (parties non officielles, sans fiche FFE) ? [O/n] ',
+      );
+      if (manual.trim().toLowerCase().startsWith('n')) break;
+
+      fiche = {
+        title: study.name,
+        startDate: '',
+        endDate: '',
+        numRounds: games.length,
+        cadenceText: '',
+        resultsLinks: {},
+      };
+      rounds = [];
+      for (const [i, g] of games.entries()) {
+        const chapterName = getTag(g, 'ChapterName') ?? '';
+        // convention "B/N vs Nom, Prénom elo" tapée par le joueur lui-même
+        // (voir desiredChapterTitle) — best-effort, rien de garanti.
+        const m = chapterName.match(/^(B|N)\s+vs\s+(.+?)(?:\s+(\d{3,4}))?\s*$/i);
+        let color: 'B' | 'N';
+        let opponentName: string | null = null;
+        let opponentElo: string | null = null;
+        if (m) {
+          color = m[1].toUpperCase() as 'B' | 'N';
+          opponentName = m[2].trim();
+          opponentElo = m[3] ?? null;
+        }
+        else {
+          const colorAnswer = await ask(
+            `Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — tu jouais Blanc ou Noir ? [b/n] `,
+          );
+          color = colorAnswer.trim().toLowerCase().startsWith('n') ? 'N' : 'B';
+        }
+        rounds.push({ round: i + 1, color, result: null, opponentName, opponentElo });
+      }
     }
     else {
-      console.warn(
-        `ALERTE: pas de "Grille Américaine" ni de "Pairing"+"Berger" pour ce tournoi (formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
-      );
-      continue;
+      const raw = ffeUrlAnswer.trim();
+      ffeUrl = /^\d+$/.test(raw)
+        ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`
+        : raw;
+
+      fiche = await fetchFiche(ffeUrl);
+
+      if (fiche.resultsLinks.Ga) {
+        ({ ownElo, rounds } = await fetchRounds(fiche.resultsLinks.Ga, ffeMatchName));
+      }
+      else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
+        // closed/round-robin tournament: no Grille Américaine, same data lives
+        // across the Pairing (round-by-round) and Berger (name→Elo) pages.
+        ({ ownElo, rounds } = await fetchClosedRounds(
+          fiche.resultsLinks.Pairing,
+          fiche.resultsLinks.Berger,
+          ffeMatchName,
+        ));
+      }
+      else {
+        console.warn(
+          `ALERTE: pas de "Grille Américaine" ni de "Pairing"+"Berger" pour ce tournoi (formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
+        );
+        continue;
+      }
     }
 
     const byeRounds = new Set<number>();
@@ -256,11 +307,11 @@ async function main() {
       let g = games[gameIdx];
       g = setTag(g, 'Round', String(r.round));
       g = setTag(g, 'Event', eventValue);
-      g = setTag(g, 'EventURL', ffeUrl);
+      if (ffeUrl) g = setTag(g, 'EventURL', ffeUrl);
       g = removeTag(g, 'UTCDate');
       g = removeTag(g, 'UTCTime');
       g = removeTag(g, 'ChapterName');
-      if (r.color && r.opponentName) {
+      if (r.color) {
         const ourSide = r.color === 'B' ? 'White' : 'Black';
         const oppSide = r.color === 'B' ? 'Black' : 'White';
         const currentResult = getTag(g, 'Result');
@@ -269,13 +320,19 @@ async function main() {
           if (!currentResult || currentResult === '*') g = setTag(g, 'Result', result);
         }
         else if (!currentResult || currentResult === '*') {
-          const manual = await askResult(`${r.round} - ${r.color}/${r.opponentName}`);
+          const manual = await askResult(`${r.round} - ${r.color}/${r.opponentName ?? '?'}`);
           if (manual) g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
         }
-        if (!opponentNameCache.has(r.opponentName)) {
-          opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
+        let opponent: ResolvedFideName;
+        if (r.opponentName) {
+          if (!opponentNameCache.has(r.opponentName)) {
+            opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
+          }
+          opponent = opponentNameCache.get(r.opponentName)!;
         }
-        const opponent = opponentNameCache.get(r.opponentName)!;
+        else {
+          opponent = await askOpponentFideId();
+        }
         // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
         g = setTag(g, oppSide, opponent.name);
         if (opponent.title && !getTag(g, `${oppSide}Title`))
@@ -285,14 +342,16 @@ async function main() {
         g = setTag(g, ourSide, our.name);
         if (our.title && !getTag(g, `${ourSide}Title`))
           g = setTag(g, `${ourSide}Title`, our.title);
-        if (!getTag(g, `${ourSide}Elo`))
+        if (ourEloValue && !getTag(g, `${ourSide}Elo`))
           g = setTag(g, `${ourSide}Elo`, ourEloValue);
       }
-      g = setTag(g, 'TimeControl', fiche.cadenceText);
+      if (fiche.cadenceText) g = setTag(g, 'TimeControl', fiche.cadenceText);
       games[gameIdx] = g;
     }
 
-    const category = await classifyCadence(fiche.cadenceText, askCategory);
+    const category = fiche.cadenceText
+      ? await classifyCadence(fiche.cadenceText, askCategory)
+      : await askCategory('(mode manuel, pas de cadence FFE)');
     console.log(`\nCadence "${fiche.cadenceText}" -> ${category}`);
 
     console.log('\nRécap avant sauvegarde :');
@@ -344,8 +403,9 @@ async function main() {
         const value = getTag(g, tag);
         if (value) tags[tag] = value;
       }
-      // EventURL isn't a tag lichess accepts — use Event for the FFE link directly.
-      tags.Event = ffeUrl;
+      // EventURL isn't a tag lichess accepts — use Event for the FFE link directly
+      // (skip in mode manuel, il n'y a pas de lien).
+      if (ffeUrl) tags.Event = ffeUrl;
       const title = desiredChapterTitle(g, our.name);
       try {
         await updateChapterTags(study.id, chapterId, tags);
