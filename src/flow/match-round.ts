@@ -10,6 +10,7 @@ import {
   resultRelativeToUs,
   toGrandroqueName,
   type MatchHint,
+  type OurSideMatch,
 } from '../grandroque.ts';
 import type { Category } from '../cadence.ts';
 import type { RatingKind } from '../fide.ts';
@@ -94,6 +95,11 @@ async function askMode(ask: (q: string) => Promise<string>): Promise<'ffe' | 'vr
   }
 }
 
+function describeMatch(o: OurSideMatch): string {
+  const date = o.match.created_at.slice(0, 10);
+  return `${o.match.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.match.result} — ${date} — ${o.match.white_team_name} vs ${o.match.black_team_name}`;
+}
+
 // mode vrac (grandroque, PLAN.md) : pas de fiche FFE unique, chaque chapitre
 // est matché indépendamment contre l'historique grandroque du joueur (un
 // seul fetch, mis en cache pour tout le run). Round n'est pas le vrai
@@ -123,19 +129,16 @@ async function runVracMode(
     const hint: MatchHint = { ...parseChapterHint(chapterName), date: chapterDateHint(g) };
     let matched = bestMatch(candidates, grandroqueName, hint);
 
-    if (!matched) {
+    if (matched) {
+      console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — auto : ${describeMatch(matched)}`);
+    } else {
       const options = topCandidates(candidates, grandroqueName, hint);
       if (options.length === 0) {
         console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat grandroque, chapitre exclu.`);
         continue;
       }
       console.log(`\nPartie ${i + 1} (${chapterName || previewMoves(g, 10)}) — plusieurs candidats grandroque :`);
-      options.forEach((o, idx) => {
-        const date = o.match.created_at.slice(0, 10);
-        console.log(
-          `  ${idx + 1}. ${o.match.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.match.result} — ${date} — ${o.match.white_team_name} vs ${o.match.black_team_name}`,
-        );
-      });
+      options.forEach((o, idx) => console.log(`  ${idx + 1}. ${describeMatch(o)}`));
       const pick = await ask('Numéro (vide = exclure ce chapitre) : ');
       const idx = parseInt(pick.trim(), 10) - 1;
       if (!options[idx]) {
