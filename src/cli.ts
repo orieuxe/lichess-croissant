@@ -54,14 +54,12 @@ async function askOpponentFideId(): Promise<ResolvedFideName> {
   }
 }
 
-// FFE round-robin pairing pages show "X - X" until the organizer enters the
-// result by hand, even for games already finished/relayed on lichess — so
-// fetchClosedRounds returns result: null and Result stays unset/"*". On
-// force un choix — jamais de "*" qui traîne.
+// Résultat inconnu (FFE non publié, ou mode manuel sans source) — on force
+// un choix, jamais de "*" qui traîne.
 async function askResult(title: string): Promise<'+' | '=' | '-'> {
   while (true) {
     const answer = await ask(
-      `Résultat FFE pas encore publié pour ${title} — [1] gagné, [0] perdu, [/] nul : `,
+      `Résultat pour ${title} — [1] gagné, [0] perdu, [/] nul : `,
     );
     const choice = answer.trim();
     if (choice === '1') return '+';
