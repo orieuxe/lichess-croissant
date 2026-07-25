@@ -7,14 +7,25 @@ const ENCODER_PATH = './pgn-encode/target/release/pgn-encode';
 
 // Encodes a PGN game string via the Rust shakmaty helper, producing
 // bit-identical Moves bytes with en-croissant's own encoding.
+// Strips non-standard headers that the strict pgn-reader crate chokes on.
 function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   try {
+    const SEVEN = new Set(['Event', 'Site', 'Date', 'Round', 'White', 'Black', 'Result']);
     const normalized = pgnGame.replace(/\r\n/g, '\n');
-    const out = execFileSync(ENCODER_PATH, { input: normalized, maxBuffer: 16 * 1024 * 1024 }).toString();
+    const stripped = normalized.split('\n').filter(l => {
+      const m = l.match(/^\[(\w+)\s/);
+      return !m || SEVEN.has(m[1]);
+    }).join('\n');
+    const out = execFileSync(ENCODER_PATH, { input: stripped, maxBuffer: 16 * 1024 * 1024 }).toString();
     const lines = out.trim().split('\n');
-    if (lines.length < 2) return { moves: new Uint8Array(0), plyCount: 0 };
-    const ply = parseInt(lines[0].split(' ')[1], 10) || 0;
-    const bytes = new Uint8Array(lines[1].split(/\s+/).map(Number));
+    // take the last PLY line (skip phantom PLY 0 from non-standard headers)
+    const plyLine = lines.filter(l => l.startsWith('PLY ')).at(-1);
+    if (!plyLine) return { moves: new Uint8Array(0), plyCount: 0 };
+    const ply = parseInt(plyLine.split(' ')[1], 10) || 0;
+    // take the last byte line
+    const byteLine = lines.filter(l => /^[\d\s]+$/.test(l.trim())).at(-1);
+    if (!byteLine) return { moves: new Uint8Array(0), plyCount: 0 };
+    const bytes = new Uint8Array(byteLine.trim().split(/\s+/).map(Number));
     return { moves: bytes, plyCount: ply };
   } catch {
     return { moves: new Uint8Array(0), plyCount: 0 };
