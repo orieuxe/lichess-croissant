@@ -1,5 +1,96 @@
 import assert from 'node:assert/strict';
-import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint } from './match-round.ts';
+import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint, groupCompetitions, filterGamesByKeys, positionalMatch } from './match-round.ts';
+import type { ProfileGame } from '../grandroque.ts';
+
+const game = (overrides: Partial<ProfileGame> = {}): ProfileGame => ({
+  id: 'g1', date: '2026-01-01T00:00:00Z', competition_title: 'Test', competition_id: 'c1', tournament_id: null,
+  board_number: 1, round_number: 1,
+  white_player_name: 'ORIEUX Etienne', white_elo: 2272, white_fide_id: 45185743,
+  black_player_name: 'OPPONENT Name', black_elo: 2000, black_fide_id: null,
+  result: '1-0', cadence: 'classical', source_type: 'historical_match',
+  ...overrides,
+});
+
+// --- groupCompetitions ---
+{
+  const groups = groupCompetitions([
+    game({ competition_title: 'Tournoi A', competition_id: 'c1' }),
+    game({ id: 'g2', competition_title: 'Tournoi A', competition_id: 'c1', round_number: 2 }),
+    game({ id: 'g3', competition_title: 'Tournoi B', competition_id: 'c2', date: '2026-02-01T00:00:00Z' }),
+  ]);
+  assert.equal(groups.length, 2, 'two distinct competition ids -> two groups');
+  // sorted by lastDate desc: Tournoi B (2026-02) first, Tournoi A (2026-01) second
+  assert.equal(groups[0].title, 'Tournoi B');
+  assert.equal(groups[1].title, 'Tournoi A');
+  assert.equal(groups[1].count, 2);
+}
+
+// group by tournament_id (individual tournaments)
+{
+  const groups = groupCompetitions([
+    game({ competition_title: 'Open', competition_id: null, tournament_id: 't1' }),
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].id, 't1');
+}
+
+// games with neither competition_id nor tournament_id are skipped
+{
+  const groups = groupCompetitions([
+    game({ competition_id: null, tournament_id: null }),
+    game({ id: 'g2', competition_id: 'c1' }),
+  ]);
+  assert.equal(groups.length, 1);
+}
+
+// null dates don't crash the sort
+{
+  groupCompetitions([
+    game({ competition_id: 'c1', date: '' }),
+    game({ id: 'g2', competition_id: 'c2', date: '2026-01-01T00:00:00Z' }),
+  ]);
+  // no throw -> pass
+}
+
+// --- filterGamesByKeys ---
+{
+  const games = [
+    game({ competition_id: 'c1', competition_title: 'A' }),
+    game({ id: 'g2', competition_id: 'c2', competition_title: 'B' }),
+  ];
+  const filtered = filterGamesByKeys(games, new Set(['c1']));
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].competition_title, 'A');
+}
+
+// --- positionalMatch ---
+{
+  const games = ['[ChapterName "B vs Opponent 2000"]\n\n1. e4 *'];
+  const { rounds, includedIndices } = positionalMatch(games, [
+    game({ round_number: 3 }),
+  ], 'Etienne ORIEUX');
+  assert.equal(rounds.length, 1);
+  assert.equal(rounds[0].round, 3, 'uses real round_number from grandroque');
+  assert.equal(rounds[0].color, 'B');
+  assert.equal(rounds[0].opponentName, 'OPPONENT Name');
+  assert.equal(includedIndices.length, 1);
+}
+
+// positionalMatch: fewer filtered games than chapters -> only matches up to min
+{
+  const games = ['', '', ''].map(() => '[ChapterName "x"]\n\n1. e4 *');
+  const { rounds } = positionalMatch(games, [game()], 'Etienne ORIEUX');
+  assert.equal(rounds.length, 1);
+}
+
+// positionalMatch: pre-tags opponent FideId on the game
+{
+  const pgnGames = ['[ChapterName "B vs Opponent"]\n\n1. e4 *'];
+  positionalMatch(pgnGames, [game({ black_fide_id: 12345 })], 'Etienne ORIEUX');
+  assert.ok(pgnGames[0].includes('[BlackFideId "12345"]'), 'opponent FideId pre-tagged on the PGN');
+}
+
+console.log('match-round.test.ts OK');
 
 assert.deepEqual(
   parseManualChapterTitle('B vs Dubuisson, Samuel 2173'),

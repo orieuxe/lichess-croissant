@@ -115,7 +115,7 @@ async function runManualMode(
 // list which includes year, so in practice this is correct).
 // Single tournament selected: chapters are in the same order as the
 // filtered grandroque matches — positional pairing, no name lookup needed.
-function positionalMatch(
+export function positionalMatch(
   games: string[],
   filtered: ProfileGame[],
   ourName: string,
@@ -230,18 +230,18 @@ async function manualPick(
   return options[idx];
 }
 
-// Group profile games by competition_title + first year (so multi-season
-// competitions like "Interclubs" get separate entries for 2025 and 2026),
-// show full names with counts, let the user pick. Returns a set of compound
-// keys for filtering.
-async function pickCompetitions(
-  allGames: ProfileGame[],
-  ask: (q: string) => Promise<string>,
-): Promise<Set<string> | null> {
-  const groupKey = (g: ProfileGame) => g.competition_id ?? g.tournament_id ?? '';
+export interface CompetitionGroup {
+  id: string;
+  title: string;
+  count: number;
+  lastDate: string;
+}
+
+// Groups games by competition_id or tournament_id — deterministic, no I/O.
+export function groupCompetitions(allGames: ProfileGame[]): CompetitionGroup[] {
   const groups = new Map<string, { title: string; count: number; lastDate: string }>();
   for (const g of allGames) {
-    const id = groupKey(g);
+    const id = g.competition_id ?? g.tournament_id ?? '';
     if (!id) continue;
     const existing = groups.get(id);
     if (existing) {
@@ -251,18 +251,31 @@ async function pickCompetitions(
       groups.set(id, { title: g.competition_title, count: 1, lastDate: g.date || '' });
     }
   }
-  const entries = [...groups.entries()]
+  return [...groups.entries()]
     .map(([id, info]) => ({ id, ...info }))
     .sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
+}
+
+// Filter games to those matching one of the selected competition group ids.
+export function filterGamesByKeys(games: ProfileGame[], keys: Set<string>): ProfileGame[] {
+  return games.filter(g => keys.has(g.competition_id ?? g.tournament_id ?? ''));
+}
+
+// Interactive picker over the grouped competitions — paginated, returns the
+// selected IDs (or null when the user backs out).
+async function pickCompetitions(
+  groups: CompetitionGroup[],
+  ask: (q: string) => Promise<string>,
+): Promise<Set<string> | null> {
   const PAGE = 10;
   const keys = new Set<string>();
   let offset = 0;
   while (true) {
-    const slice = entries.slice(offset, offset + PAGE);
-    console.log(`\nCompétitions (${offset + 1}-${Math.min(offset + PAGE, entries.length)}/${entries.length}) :`);
+    const slice = groups.slice(offset, offset + PAGE);
+    console.log(`\nCompétitions (${offset + 1}-${Math.min(offset + PAGE, groups.length)}/${groups.length}) :`);
     slice.forEach((e, i) =>
       console.log(`  ${i + 1}. ${e.title} — ${e.count} parties — ${e.lastDate.slice(0, 10)}`));
-    const hasMore = offset + PAGE < entries.length;
+    const hasMore = offset + PAGE < groups.length;
     const prompt = hasMore
       ? 'Numéro(s) (virgule, "+" = voir plus, vide = annuler) : '
       : 'Numéro(s) (virgule, vide = annuler) : ';
@@ -270,7 +283,7 @@ async function pickCompetitions(
     if (pick === '+') { offset += PAGE; continue; }
     if (!pick) return null;
     for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
-      const entry = entries[offset + n];
+      const entry = groups[offset + n];
       if (entry) keys.add(entry.id);
     }
     return keys.size ? keys : null;
@@ -337,10 +350,11 @@ export async function matchRound(
       continue;
     }
 
-    const selectedKeys = await pickCompetitions(allGames, ask);
+    const competitionGroups = groupCompetitions(allGames);
+    const selectedKeys = await pickCompetitions(competitionGroups, ask);
     if (!selectedKeys) continue;
 
-    const filtered = allGames.filter(g => selectedKeys.has(g.competition_id ?? g.tournament_id ?? ''));
+    const filtered = filterGamesByKeys(allGames, selectedKeys);
     if (filtered.length === 0) {
       console.warn('Aucune partie trouvée pour les compétitions sélectionnées.');
       continue;
