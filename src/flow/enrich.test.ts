@@ -131,4 +131,31 @@ const noCallbackNeeded = {
   assert.equal(getTag(result, 'White'), '?', 'untouched — no callback allowed to fire');
 }
 
+// mode vrac: each RoundResult can carry its own Event (competition_title),
+// overriding the run's shared eventValue.
+{
+  const rounds: RoundResult[] = [
+    { round: 1, color: 'B', result: '+', opponentName: 'X', opponentElo: null, event: 'Coupe de France' },
+    { round: 2, color: 'N', result: '-', opponentName: 'Y', opponentElo: null },
+  ];
+  const resolveFideName = async () => ({ name: 'Z' }) satisfies ResolvedFideName;
+
+  const result = await enrichGames(
+    {
+      games: [game(), game()],
+      includedIndices: [0, 1],
+      rounds,
+      fiche: ficheManual,
+      ffeUrl: '',
+      eventValue: 'Interclubs N3',
+      our,
+      ratingKind: 'standardElo',
+      ourEloValue: '',
+    },
+    { ...noCallbackNeeded, resolveFideName },
+  );
+  assert.equal(getTag(result[0], 'Event'), 'Coupe de France', 'per-round event wins over the shared one');
+  assert.equal(getTag(result[1], 'Event'), 'Interclubs N3', 'no per-round event -> falls back to the shared one');
+}
+
 console.log('enrich.test.ts OK');

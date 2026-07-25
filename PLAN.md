@@ -12,6 +12,15 @@
 - Identité : `FIDE_ID` dans `.env`, fetché une fois au démarrage (`getFidePlayer`) → nom + titre + nom format FFE dérivé pour matcher la grille FFE, plus besoin de `FFE_PLAYER_NAME`
 - Noms adversaire reformatés "Nom, Prénom" + titre FIDE via `lichess.org/api/fide/player`, demande l'ID FIDE si pas de match clair
 - Tags posés : Round, Event (choix titre FFE / nom study / libre), EventURL (lien FFE, local uniquement), White/Black, WhiteElo/BlackElo (adversaire + soi), WhiteTitle/BlackTitle, WhiteFideId/BlackFideId (adversaire + soi, whitelist lichess), Result (dérivé +/=/- FFE), TimeControl (texte cadence brut)
+- Mode manuel (`src/flow/match-round.ts`) : studies sans tournoi FFE du tout (parties
+  amicales/blitz entre potes, pas de trace officielle nulle part) — lien FFE vide,
+  choix `[m]`. Round = position dans la study, adversaire parsé du `ChapterName`
+  (convention `B/N vs Nom Elo`) ou saisi à la main (ID FIDE ou nom), cadence
+  demandée `[s/r/b]` (fixe aussi la catégorie de merge et le rating FIDE à utiliser)
+- Mode vrac / grandroque (`src/grandroque.ts` + branche vrac de `match-round.ts`) :
+  compétitions par équipe (Interclubs, Coupe de France) — lien FFE vide, choix `[g]`.
+  Voir section dédiée ci-dessous, implémenté avec un scope réduit par rapport au
+  plan initial (round_number non résolu, voir Limitation connue)
 - UTCDate/UTCTime/ChapterName supprimés du PGN local
 - Récap avant sauvegarde (titre round + adversaire + elo + résultat + coups) avec confirmation `[O/n]` — annule tout si refusé (rien écrit, rien pushé)
 - Push des tags vers lichess (`POST /api/study/{id}/{chapterId}/tags`) — whitelist stricte côté lichess (voir Limitation connue), `Event` = lien FFE direct côté push (EventURL non supporté par l'API)
@@ -24,7 +33,9 @@
 
 Renommer le titre d'un chapitre existant ("B/N vs Nom, Prénom elo") : **pas possible via l'API publique lichess**, seuls les tags PGN sont modifiables (whitelist stricte : White/Black/Elo/Title/Team/FideId, TimeControl, Date, Result, Termination, Site, Event, Round, Board, Annotator, GameId — voir `StudyPgnTags.scala` dans lila), le titre n'est dérivé du PGN qu'à l'import initial. `UTCDate`/`UTCTime`/`ChapterName`/`EventURL` hors whitelist → 400 systématique, même pour delete, donc jamais envoyés au push. Feature request déposée : https://github.com/lichess-org/api/issues/660. À faire à la main sur lichess en attendant, ou si l'issue avance.
 
-## En cours — mode "vrac" (parties d'équipe sans tournoi FFE individuel)
+Mode vrac : `Round` n'est **pas** le vrai `round_number` grandroque — voir section dédiée.
+
+## Mode vrac (parties d'équipe sans tournoi FFE individuel) — fait, scope réduit
 
 ### Contexte
 
@@ -34,76 +45,66 @@ applicable à toute la study. Cas fréquent : Interclubs nationaux / Coupe de Fr
 il n'y a pas de page FFE individuelle à fournir (pas de `FicheTournoi.aspx` pour un
 match d'équipe donné).
 
-Découverte en cours de route : **grandroque.fr** (`api.grandroque.fr`) a une vraie API
-REST/JSON publique (OpenAPI en clair sur `/openapi.json`), et couvre les compétitions
-par équipe (Interclubs, Coupe de France) de façon bien plus exploitable que FFE
-(`Equipes.aspx` est un formulaire ASP.NET à postback — pas exploitable simplement).
-Ne couvre PAS les tournois individuels (Opens type Saint-Quentin) — ceux-là restent
-sur le flow FFE existant, inchangé.
-
-### Endpoints grandroque utiles (publics, sans auth)
-
-- `GET /api/v1/competitions/players/search?q=<nom>` — trouve le nom exact tel
-  qu'enregistré (ex "Orieux" → `"ORIEUX Etienne"`)
-- `GET /api/v1/competitions/player-matches?player_name=ORIEUX Etienne` — TOUTES les
-  parties par équipe du joueur, toutes compétitions confondues : adversaire
-  (nom/elo/ffe_id/fide_id), couleur, résultat, `competition_title`, noms d'équipes,
-  `team_match_id`. Pas de `round_number` ni `date` fiable dedans (`match_date` vu à
-  `null` sur les exemples testés).
-- `GET /api/v1/competitions/{competition_id}/rounds` — toutes les rondes d'une
-  compétition, avec `round_number`, `date` (réelle, ex `2025-10-12T00:00:00Z`) et
-  `board_results` par match. Donne round_number+date fiables, mais il faut connaître
-  le `competition_id` (pas fourni directement par `player-matches`).
-- `GET /api/v1/competitions` — liste toutes les compétitions (id, title, saison...) —
-  sert à résoudre `competition_title` (texte) → `competition_id` (uuid) pour aller
-  chercher les rondes.
+**grandroque.fr** (`api.grandroque.fr`) a une vraie API REST/JSON publique (OpenAPI en
+clair sur `/openapi.json`), et couvre les compétitions par équipe (Interclubs, Coupe
+de France) de façon bien plus exploitable que FFE (`Equipes.aspx` est un formulaire
+ASP.NET à postback). Ne couvre PAS les tournois individuels (Opens type
+Saint-Quentin) — ceux-là restent sur le flow FFE existant, inchangé.
 
 ### Déclenchement
 
-Au prompt "Lien fiche FFE (vide = skip)" existant : si vide **et** que la study
-contient des chapitres qui ne collent à aucun tournoi unique (au minimum : proposer
-le mode vrac en fallback quand le lien FFE est laissé vide, plutôt que juste
-abandonner l'enrichissement comme aujourd'hui) → **mode vrac**, traitement chapitre
-par chapitre au lieu d'un batch sur toute la study.
+Au prompt "Lien fiche FFE ou id du tournoi (vide = mode manuel/vrac)" : si vide,
+choix `[g]` grandroque / `[m]` manuel. `src/flow/match-round.ts` (`runVracMode`),
+traitement chapitre par chapitre au lieu d'un batch sur toute la study.
 
-### Matching par partie
+### Endpoint utilisé
 
-1. Avant suppression, capturer le titre de chapitre existant (`ChapterName`) — le
-   joueur le tape souvent lui-même en `B/N vs (Nom) (Elo)`, parsé en best-effort
-   (couleur, nom si présent, elo si présent — aucun de ces trois n'est garanti).
-2. Capturer aussi la date du chapitre (`Date`/`UTCDate` avant suppression) — date à
-   laquelle la partie a été rentrée sur lichess, sert de signal de proximité.
-3. Scorer les candidats de `player-matches` (mis en cache pour toute la session, un
-   seul fetch) sur : couleur (si connue), similarité nom adversaire (réutiliser la
-   logique de matching tokens de `fide.ts`), egalité elo adversaire (si connu),
-   proximité de date (nécessite d'avoir résolu round_number+date via
-   `/competitions/{id}/rounds` pour les candidats plausibles — résolution
-   `competition_title → competition_id` une fois par compétition rencontrée, cache).
-4. Un seul candidat net après scoring → auto-appliqué, pas de prompt.
-5. Sinon → liste filtrée/triée affichée (compétition, adversaire, date, résultat),
-   choix par numéro, ou skip (le chapitre reste tel quel, pas dans le merge).
+- `GET /api/v1/competitions/player-matches?player_name=ORIEUX Etienne` — un seul
+  fetch par run, mis en cache pour tous les chapitres. Donne, en clair, bien plus
+  que prévu au départ : `white_fide_id`/`black_fide_id`/`white_ffe_id`/`black_ffe_id`
+  en plus du nom/elo/résultat/`competition_title`/noms d'équipe/`created_at`.
+  **Conséquence : pas de recherche/matching FIDE nécessaire pour l'adversaire une
+  fois la bonne partie identifiée** — `resolveFideById` direct sur le
+  `black_fide_id`/`white_fide_id` fourni.
+
+### Matching par partie (`src/grandroque.ts`)
+
+1. Titre de chapitre (`ChapterName`, avant suppression) parsé best-effort
+   (`parseChapterHint`) : couleur, nom adversaire, elo — convention `B/N vs Nom Elo`.
+2. Date du chapitre (`Date`/`UTCDate`, avant suppression) capturée comme signal de
+   proximité (`chapterDateHint`), comparée à `created_at` du candidat grandroque
+   (pas besoin de résoudre round_number/date réels — voir limitation ci-dessous).
+3. Score sur couleur / overlap nom adversaire / égalité elo (±5) / proximité date.
+   Candidat net (score positif, pas d'égalité) → auto-appliqué (`bestMatch`).
+4. Sinon → liste des candidats triés affichée (compétition, couleur/adversaire/elo,
+   résultat, date, équipes), choix par numéro ou vide pour exclure ce chapitre
+   (`topCandidates`, pas de seuil — l'humain juge).
 
 ### Tags posés en mode vrac
 
-- `Round` = `round_number` grandroque (même mécanisme Interclubs et Coupe de France,
-  pas de tentative de mapper vers des noms de phase genre "32e Finale" — pas fiable
-  à déduire, `round_number` brut suffit)
-- `Event` = `competition_title` grandroque (`Interclubs`, `Coupe de France`, ...)
-- White/Black/Elo/Title/Result : mêmes règles que le flow FFE existant (ne remplace
-  pas ce qui est déjà présent)
-- `TimeControl` : `cadence_preset`/`cadence_exact` de la compétition grandroque
-  (ex `"classical"`) — format à voir à l'implémentation, probablement moins riche
-  que le texte FFE donc heuristique cadence (`parseBaseMinutes`) à adapter ou
-  contourner (mapping direct `classical/rapid/blitz` → `classique/non-classique`,
-  plus simple que de re-parser un texte)
+- `Event` = `competition_title` grandroque, **par partie** (`RoundResult.event`,
+  overrides l'Event partagé du run dans `enrich.ts`) — une même study peut mélanger
+  Coupe de France et Interclubs sans problème.
+- `Round` = compteur local, incrémenté à chaque partie matchée pour cette
+  compétition dans CE run (`1, 2, 3...` par `competition_title` rencontré) — **pas**
+  le vrai `round_number` grandroque, voir Limitation connue.
+- `White`/`Black`/`Elo`/`Result` : mêmes règles que le flow FFE (`enrich.ts` commun,
+  aucune branche spécifique) — Elo direct du candidat matché, Result dérivé du score
+  absolu grandroque (`resultRelativeToUs`) via le même encodage +/=/- que la FFE.
+- `TimeControl` : non posé (catégorie de merge forcée `classique` par défaut à la
+  place — voir Limitation connue).
 
-### Pas encore tranché (détails d'implém, à régler en codant)
+### Limitation connue (découverte en implémentant, scope réduit vs plan initial)
 
-- Format exact de l'appel groupé round_number+date par candidat (une résolution
-  `/rounds` par compétition rencontrée, mise en cache par `competition_id` pour
-  la durée du run)
-- Seuil de confiance exact pour "un seul candidat net" (nom exact + date proche
-  suffit, ou faut aussi l'elo/couleur ?)
+Le plan initial visait `Round` = vrai `round_number` grandroque via
+`/competitions/{competition_id}/rounds`, résolu depuis `competition_title` via
+`/competitions`. **`competition_title` n'est pas unique** : "Coupe de France" à elle
+seule a 250+ entrées distinctes dans `/competitions` (une par poule/saison
+apparemment), sans aucun filtre serveur (`?title=` etc.) pour les départager —
+retrouver le bon `competition_id` demanderait de scanner tous les candidats un par
+un, pas praticable. Idem pour `cadence_preset`/`cadence_exact` (vivent sur l'objet
+compétition, jamais résolu) : catégorie de merge forcée `classique` par défaut, les
+compétitions par équipe FFE étant quasi toujours en cadence classique en pratique.
 
 ## Reste (phase 2, hors scope actuel)
 

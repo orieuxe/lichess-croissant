@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node --env-file=.env src/cli.ts",
-    "test": "node src/pgn.test.ts && node src/ffe.test.ts && node src/lichess.test.ts && node src/merge.test.ts && node src/cadence.test.ts && node src/fide.test.ts && node src/git.test.ts && node src/flow/study-select.test.ts && node src/flow/match-round.test.ts && node src/flow/enrich.test.ts && node src/flow/push-lichess.test.ts",
+    "test": "node src/pgn.test.ts && node src/ffe.test.ts && node src/lichess.test.ts && node src/merge.test.ts && node src/cadence.test.ts && node src/fide.test.ts && node src/grandroque.test.ts && node src/git.test.ts && node src/flow/study-select.test.ts && node src/flow/match-round.test.ts && node src/flow/enrich.test.ts && node src/flow/push-lichess.test.ts",
     "format": "eslint . --fix",
     "lint": "eslint ."
   },

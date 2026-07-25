@@ -6,8 +6,10 @@ export interface PlayerMatch {
   board_number: number;
   white_player_name: string;
   white_player_elo: number | null;
+  white_fide_id: number | null;
   black_player_name: string;
   black_player_elo: number | null;
+  black_fide_id: number | null;
   result: string;
   created_at: string;
   competition_title: string;
@@ -53,13 +55,35 @@ export interface OurSideMatch {
   ourSide: 'White' | 'Black';
   opponentName: string;
   opponentElo: number | null;
+  opponentFideId: number | null;
 }
 
 export function ourSideOf(pm: PlayerMatch, ourName: string): OurSideMatch {
   const ourIsWhite = normalizeName(pm.white_player_name) === normalizeName(ourName);
   return ourIsWhite
-    ? { match: pm, ourSide: 'White', opponentName: pm.black_player_name, opponentElo: pm.black_player_elo }
-    : { match: pm, ourSide: 'Black', opponentName: pm.white_player_name, opponentElo: pm.white_player_elo };
+    ? {
+        match: pm,
+        ourSide: 'White',
+        opponentName: pm.black_player_name,
+        opponentElo: pm.black_player_elo,
+        opponentFideId: pm.black_fide_id,
+      }
+    : {
+        match: pm,
+        ourSide: 'Black',
+        opponentName: pm.white_player_name,
+        opponentElo: pm.white_player_elo,
+        opponentFideId: pm.white_fide_id,
+      };
+}
+
+// PGN-style absolute result ("1-0"/"0-1"/"1/2-1/2") -> relative to us, same
+// tri-state convention as the FFE flow ('+'/'='/'-').
+export function resultRelativeToUs(absoluteResult: string, ourSide: 'White' | 'Black'): '+' | '=' | '-' | null {
+  if (absoluteResult === '1/2-1/2') return '=';
+  if (absoluteResult === '1-0') return ourSide === 'White' ? '+' : '-';
+  if (absoluteResult === '0-1') return ourSide === 'White' ? '-' : '+';
+  return null;
 }
 
 function scoreMatch(m: OurSideMatch, hint: MatchHint): number {
@@ -77,21 +101,40 @@ function scoreMatch(m: OurSideMatch, hint: MatchHint): number {
   return score;
 }
 
+function rankMatches(
+  candidates: PlayerMatch[],
+  ourName: string,
+  hint: MatchHint,
+): { m: OurSideMatch; score: number }[] {
+  return candidates
+    .map(pm => ourSideOf(pm, ourName))
+    .map(m => ({ m, score: scoreMatch(m, hint) }))
+    .sort((a, b) => b.score - a.score);
+}
+
 // ponytail: picks a match only when scoring is unambiguous (positive top
 // score, no tie) — anything murkier goes to the caller's manual picker
-// rather than risk silently tagging the wrong game.
+// (topCandidates) rather than risk silently tagging the wrong game.
 export function bestMatch(
   candidates: PlayerMatch[],
   ourName: string,
   hint: MatchHint,
 ): OurSideMatch | null {
-  const scored = candidates
-    .map(pm => ourSideOf(pm, ourName))
-    .map(m => ({ m, score: scoreMatch(m, hint) }))
-    .sort((a, b) => b.score - a.score);
+  const scored = rankMatches(candidates, ourName, hint);
   if (scored.length === 0 || scored[0].score <= 0) return null;
   if (scored.length > 1 && scored[0].score === scored[1].score) return null;
   return scored[0].m;
+}
+
+// For the manual picker when bestMatch can't decide — best-scored first,
+// no threshold (the human eyeballs team/opponent/date and decides).
+export function topCandidates(
+  candidates: PlayerMatch[],
+  ourName: string,
+  hint: MatchHint,
+  limit = 8,
+): OurSideMatch[] {
+  return rankMatches(candidates, ourName, hint).slice(0, limit).map(s => s.m);
 }
 
 // Best-effort parse of a chapter title like "B vs Muthaiah AL 2442".

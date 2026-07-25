@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { bestMatch, parseChapterHint, ourSideOf } from './grandroque.ts';
+import { bestMatch, topCandidates, parseChapterHint, ourSideOf, resultRelativeToUs } from './grandroque.ts';
 
 const ourName = 'ORIEUX Etienne';
 
@@ -26,8 +26,10 @@ const candidates = [
     board_number: 1,
     white_player_name: 'ORIEUX Etienne',
     white_player_elo: 2272,
+    white_fide_id: 45185743,
     black_player_name: 'HAREUX Hubert',
     black_player_elo: 2168,
+    black_fide_id: 1234567,
     result: '1/2-1/2',
     created_at: '2026-06-08T16:04:45Z',
     competition_title: 'Coupe de France',
@@ -40,8 +42,10 @@ const candidates = [
     board_number: 2,
     white_player_name: 'DANIEL Antoine',
     white_player_elo: 1938,
+    white_fide_id: 7654321,
     black_player_name: 'ORIEUX Etienne',
     black_player_elo: 2272,
+    black_fide_id: 45185743,
     result: '0-1',
     created_at: '2026-06-07T12:33:45Z',
     competition_title: 'Coupe de France',
@@ -54,6 +58,7 @@ const own = ourSideOf(candidates[0], ourName);
 assert.equal(own.ourSide, 'White');
 assert.equal(own.opponentName, 'HAREUX Hubert');
 assert.equal(own.opponentElo, 2168);
+assert.equal(own.opponentFideId, 1234567);
 
 // unambiguous: color + name + elo all point at candidate 1
 const clear = bestMatch(candidates, ourName, {
@@ -81,5 +86,20 @@ const colorOnly = bestMatch(candidates, ourName, {
   date: null,
 });
 assert.equal(colorOnly?.match.id, '2');
+
+// ambiguous (both candidates plausible, no clean winner) -> caller gets a
+// ranked list instead of a guess.
+const ambiguous = bestMatch(candidates, ourName, { color: null, opponentName: null, opponentElo: null, date: null });
+assert.equal(ambiguous, null);
+const ranked = topCandidates(candidates, ourName, { color: null, opponentName: null, opponentElo: null, date: null });
+assert.equal(ranked.length, 2, 'no threshold — both come back for the human to pick from');
+
+assert.equal(resultRelativeToUs('1-0', 'White'), '+');
+assert.equal(resultRelativeToUs('1-0', 'Black'), '-');
+assert.equal(resultRelativeToUs('0-1', 'White'), '-');
+assert.equal(resultRelativeToUs('0-1', 'Black'), '+');
+assert.equal(resultRelativeToUs('1/2-1/2', 'White'), '=');
+assert.equal(resultRelativeToUs('1/2-1/2', 'Black'), '=');
+assert.equal(resultRelativeToUs('*', 'White'), null, 'unrecognized/ongoing -> null');
 
 console.log('grandroque.test.ts OK');

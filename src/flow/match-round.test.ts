@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices } from './match-round.ts';
+import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint } from './match-round.ts';
 
 assert.deepEqual(
   parseManualChapterTitle('B vs Dubuisson, Samuel 2173'),
@@ -25,5 +25,12 @@ assert.deepEqual(
 assert.deepEqual(parseExcludedIndices('1, 3'), new Set([0, 2]), '1-based input -> 0-based indices');
 assert.deepEqual(parseExcludedIndices(''), new Set());
 assert.deepEqual(parseExcludedIndices('x, 2'), new Set([1]), 'garbage tokens dropped, valid ones kept');
+
+const withUtcDate = '[Event "x"]\n[UTCDate "2026.06.08"]\n[Date "2026.06.08"]\n\n1. e4 *';
+assert.equal(chapterDateHint(withUtcDate)?.toISOString().slice(0, 10), '2026-06-08');
+const dateOnly = '[Event "x"]\n[Date "2026.06.07"]\n\n1. e4 *';
+assert.equal(chapterDateHint(dateOnly)?.toISOString().slice(0, 10), '2026-06-07', 'falls back to Date when no UTCDate');
+assert.equal(chapterDateHint('[Event "x"]\n[Date "????.??.??"]\n\n1. e4 *'), null, 'unknown date -> null');
+assert.equal(chapterDateHint('[Event "x"]\n\n1. e4 *'), null, 'no date tag at all -> null');
 
 console.log('match-round.test.ts OK');

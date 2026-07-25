@@ -15,6 +15,9 @@ export interface RoundResult {
   result: '+' | '=' | '-' | null;
   opponentName: string | null;
   opponentElo: string | null;
+  // mode vrac (grandroque): chaque partie peut venir d'une compétition
+  // différente — override de l'Event partagé quand présent.
+  event?: string;
 }
 
 const UA = { 'User-Agent': 'Mozilla/5.0' };

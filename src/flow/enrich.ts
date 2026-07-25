@@ -36,7 +36,7 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
     const r = rounds[roundIdx];
     let g = result[gameIdx];
     g = setTag(g, 'Round', String(r.round));
-    g = setTag(g, 'Event', eventValue);
+    g = setTag(g, 'Event', r.event ?? eventValue);
     if (ffeUrl) g = setTag(g, 'EventURL', ffeUrl);
     g = removeTag(g, 'UTCDate');
     g = removeTag(g, 'UTCTime');

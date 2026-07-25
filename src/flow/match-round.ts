@@ -1,7 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { downloadStudy, type StudyRef } from '../lichess.ts';
 import { fetchFiche, fetchRounds, fetchClosedRounds, type FicheTournoi, type RoundResult } from '../ffe.ts';
-import { splitGames, getTag, previewMoves } from '../pgn.ts';
+import { splitGames, getTag, setTag, previewMoves } from '../pgn.ts';
+import {
+  fetchPlayerMatches,
+  bestMatch,
+  topCandidates,
+  parseChapterHint,
+  resultRelativeToUs,
+  type MatchHint,
+} from '../grandroque.ts';
 import type { Category } from '../cadence.ts';
 import type { RatingKind } from '../fide.ts';
 
@@ -39,6 +47,15 @@ export function parseExcludedIndices(input: string): Set<number> {
   );
 }
 
+// Chapter Date/UTCDate (before it's stripped) as a proximity signal for
+// grandroque matching — best-effort, missing/"?" dates are common.
+export function chapterDateHint(game: string): Date | null {
+  const raw = getTag(game, 'UTCDate') ?? getTag(game, 'Date');
+  if (!raw || raw.includes('?')) return null;
+  const d = new Date(raw.replace(/\./g, '-'));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export interface MatchResult {
   fiche: FicheTournoi;
   ffeUrl: string;
@@ -65,10 +82,113 @@ async function askCadenceKind(
   }
 }
 
-// The FFE-link / mode-manuel loop: resolve which rounds/opponents apply to
-// this download, retrying on a bad link or a games/rounds-count mismatch,
-// until either a usable match is built or the user backs all the way out
-// (blank link, declines mode manuel -> match: null).
+async function askVracOrManuel(ask: (q: string) => Promise<string>): Promise<'vrac' | 'manuel'> {
+  while (true) {
+    const answer = (await ask(
+      'Pas de lien FFE — [g] grandroque (interclubs/coupe de France), [m] manuel (parties non officielles) : ',
+    )).trim().toLowerCase();
+    if (answer.startsWith('g')) return 'vrac';
+    if (answer.startsWith('m')) return 'manuel';
+  }
+}
+
+// mode vrac (grandroque, PLAN.md) : pas de fiche FFE unique, chaque chapitre
+// est matché indépendamment contre l'historique grandroque du joueur (un
+// seul fetch, mis en cache pour tout le run). Round n'est pas le vrai
+// round_number grandroque — resolvable seulement via /competitions/{id}/rounds,
+// et competition_title n'est PAS unique (250+ "Coupe de France" distinctes,
+// aucun filtre serveur) donc retrouver le bon competition_id coûterait un
+// scan de tous les candidats. À la place : Round = compteur local, incrémenté
+// à chaque partie matchée pour cette compétition dans CE run.
+async function runVracMode(
+  games: string[],
+  ffeMatchName: string,
+  studyName: string,
+  ask: (q: string) => Promise<string>,
+): Promise<MatchResult | null> {
+  const candidates = await fetchPlayerMatches(ffeMatchName);
+  if (candidates.length === 0) {
+    console.warn(`ALERTE: aucune partie grandroque trouvée pour "${ffeMatchName}".`);
+    return null;
+  }
+
+  const rounds: RoundResult[] = [];
+  const includedIndices: number[] = [];
+  const roundCounters = new Map<string, number>();
+
+  for (const [i, g] of games.entries()) {
+    const chapterName = getTag(g, 'ChapterName') ?? '';
+    const hint: MatchHint = { ...parseChapterHint(chapterName), date: chapterDateHint(g) };
+    let matched = bestMatch(candidates, ffeMatchName, hint);
+
+    if (!matched) {
+      const options = topCandidates(candidates, ffeMatchName, hint);
+      if (options.length === 0) {
+        console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat grandroque, chapitre exclu.`);
+        continue;
+      }
+      console.log(`\nPartie ${i + 1} (${chapterName || previewMoves(g, 10)}) — plusieurs candidats grandroque :`);
+      options.forEach((o, idx) => {
+        const date = o.match.created_at.slice(0, 10);
+        console.log(
+          `  ${idx + 1}. ${o.match.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.match.result} — ${date} — ${o.match.white_team_name} vs ${o.match.black_team_name}`,
+        );
+      });
+      const pick = await ask('Numéro (vide = exclure ce chapitre) : ');
+      const idx = parseInt(pick.trim(), 10) - 1;
+      if (!options[idx]) {
+        console.log('Chapitre exclu.');
+        continue;
+      }
+      matched = options[idx];
+    }
+
+    const eventTitle = matched.match.competition_title;
+    const nextRound = (roundCounters.get(eventTitle) ?? 0) + 1;
+    roundCounters.set(eventTitle, nextRound);
+
+    const color: 'B' | 'N' = matched.ourSide === 'White' ? 'B' : 'N';
+    if (matched.opponentFideId) {
+      const oppSide = color === 'B' ? 'Black' : 'White';
+      games[i] = setTag(games[i], `${oppSide}FideId`, String(matched.opponentFideId));
+    }
+
+    rounds.push({
+      round: nextRound,
+      color,
+      result: resultRelativeToUs(matched.match.result, matched.ourSide),
+      opponentName: matched.opponentName,
+      opponentElo: matched.opponentElo !== null ? String(matched.opponentElo) : null,
+      event: eventTitle,
+    });
+    includedIndices.push(i);
+  }
+
+  if (includedIndices.length === 0) {
+    console.warn('ALERTE: aucune partie matchée en mode vrac.');
+    return null;
+  }
+
+  const fiche: FicheTournoi = {
+    title: studyName,
+    startDate: '',
+    endDate: '',
+    numRounds: includedIndices.length,
+    cadenceText: '',
+    resultsLinks: {},
+  };
+
+  // ponytail: pas de cadence_preset côté player-matches (vivrait sur l'objet
+  // compétition, qu'on ne résout pas) — interclubs/coupe de France sont
+  // ~toujours classique en pratique, donc classique par défaut plutôt qu'un
+  // appel API de plus pour un cas marginal.
+  return { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind: 'standardElo', category: 'classique' };
+}
+
+// The FFE-link / mode-manuel / mode-vrac loop: resolve which rounds/opponents
+// apply to this download, retrying on a bad link or a games/rounds-count
+// mismatch, until either a usable match is built or the user backs all the
+// way out (blank link, declines mode manuel -> match: null).
 export async function matchRound(
   study: StudyRef,
   initialFilename: string,
@@ -80,7 +200,7 @@ export async function matchRound(
   let games = initialGames;
 
   while (true) {
-    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel) : ');
+    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel/vrac) : ');
 
     let fiche: FicheTournoi;
     let ffeUrl = '';
@@ -90,6 +210,13 @@ export async function matchRound(
     let manualCategory: Category | null = null;
 
     if (!ffeUrlAnswer.trim()) {
+      const mode = await askVracOrManuel(ask);
+      if (mode === 'vrac') {
+        const vracMatch = await runVracMode(games, ffeMatchName, study.name, ask);
+        if (!vracMatch) continue;
+        return { match: vracMatch, filename, games };
+      }
+
       // pas de deuxième confirmation ici — le "n" final à "Sauvegarder ?"
       // couvre déjà le cas "en fait j'annule tout", pas besoin d'y ajouter
       // une porte de sortie ici.
