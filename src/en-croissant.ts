@@ -8,14 +8,20 @@ import { splitGames, getTag } from './pgn.ts';
 // format: one byte per move, each byte being the index of that move in the
 // list of legal moves at that position (shakmaty-compatible).
 function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
-  const headerEnd = pgnGame.indexOf('\n\n');
+  const normalized = pgnGame.replace(/\r\n/g, '\n');
+  const headerEnd = normalized.indexOf('\n\n');
   if (headerEnd === -1) return { moves: new Uint8Array(0), plyCount: 0 };
-  const raw = pgnGame.slice(headerEnd + 2)
+  let raw = normalized.slice(headerEnd + 2)
     .replace(/\{[^}]*\}/g, '')
-    .replace(/\([^()]*\)/g, '')
     .replace(/\d+\.\.\./g, '')
     .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\s*$/g, '')
     .trim();
+  // recursively remove parenthesized variations
+  let prev: string;
+  do {
+    prev = raw;
+    raw = raw.replace(/\([^()]*\)/g, '');
+  } while (raw !== prev);
   if (!raw) return { moves: new Uint8Array(0), plyCount: 0 };
 
   const chess = new Chess();
