@@ -61,9 +61,17 @@ export interface MatchResult {
   category: Category | null;
 }
 
-function describeMatch(o: OurSideMatch): string {
+export function describeMatch(o: OurSideMatch): string {
   const date = (o.game.date || '').slice(0, 10);
   return `${o.game.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.game.result} — ${date} (r${o.game.round_number})`;
+}
+
+// Extract an opponent name from a chapter title — tries the full convention
+// (B/N vs Name Elo), then the loose fallback, then the raw title as-is if
+// it looks like a person name (contains a space).
+export function resolveHintName(chapterName: string): string {
+  const hint = parseChapterHint(chapterName);
+  return hint.opponentName ?? extractOpponentFromTitle(chapterName) ?? (chapterName.includes(' ') ? chapterName : '');
 }
 
 // mode manuel: pas de fiche FFE, pas de grandroque — deviner le nom depuis
@@ -172,8 +180,7 @@ async function nameBasedMatch(
 
   for (const [i, g] of games.entries()) {
     const chapterName = getTag(g, 'ChapterName') ?? '';
-    const hint = parseChapterHint(chapterName);
-    const hintName = hint.opponentName ?? extractOpponentFromTitle(chapterName) ?? (chapterName.includes(' ') ? chapterName : '');
+    const hintName = resolveHintName(chapterName);
     const available = filtered.filter(c => !usedIds.has(c.id));
     let pg: ProfileGame | null = hintName ? matchGame(hintName, available, ourName) : null;
 

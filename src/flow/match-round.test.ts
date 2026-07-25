@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint, groupCompetitions, filterGamesByKeys, positionalMatch, buildRoundFromMatch } from './match-round.ts';
+import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint, groupCompetitions, filterGamesByKeys, positionalMatch, buildRoundFromMatch, describeMatch, resolveHintName } from './match-round.ts';
+import { ourSideOf } from '../grandroque.ts';
 import type { ProfileGame } from '../grandroque.ts';
 
 const game = (overrides: Partial<ProfileGame> = {}): ProfileGame => ({
@@ -89,6 +90,26 @@ const game = (overrides: Partial<ProfileGame> = {}): ProfileGame => ({
   positionalMatch(pgnGames, [game({ black_fide_id: 12345 })], 'Etienne ORIEUX');
   assert.ok(pgnGames[0].includes('[BlackFideId "12345"]'), 'opponent FideId pre-tagged on the PGN');
 }
+
+// --- describeMatch ---
+{
+  const o = ourSideOf(game(), 'Etienne ORIEUX');
+  const s = describeMatch(o);
+  assert.ok(s.includes('Test — B vs'), 'contains competition + side + opponent');
+  assert.ok(s.includes('(r1)'), 'includes round number');
+}
+// null date doesn't crash
+{
+  const o = ourSideOf(game({ date: '' }), 'Etienne ORIEUX');
+  assert.doesNotThrow(() => describeMatch(o));
+}
+
+// --- resolveHintName ---
+assert.equal(resolveHintName('B vs Dubuisson, Samuel 2173'), 'Dubuisson, Samuel');
+assert.equal(resolveHintName('N bs Clément Steffe 2011'), 'Clément Steffe');
+assert.equal(resolveHintName('Clément Steffe'), 'Clément Steffe', 'raw title with space -> used as-is');
+assert.equal(resolveHintName('Chapter 3'), 'Chapter 3', 'has a space -> used as-is (will match nothing in grandroque)');
+assert.equal(resolveHintName('Round1'), '', 'single word, not a known convention -> empty');
 
 // --- buildRoundFromMatch ---
 {
