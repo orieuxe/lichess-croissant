@@ -1,8 +1,20 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import type { RatingKind } from './fide.ts';
 
 const CADENCE_MAP_PATH = 'cadence-map.json';
 
 export type Category = 'classique' | 'non-classique';
+
+const CADENCE_CATEGORY: Record<string, Category> = { classical: 'classique', rapid: 'non-classique', blitz: 'non-classique' };
+const CADENCE_RATING: Record<string, RatingKind> = { classical: 'standardElo', rapid: 'rapidElo', blitz: 'blitzElo' };
+
+export function cadenceToCategory(cadence: string): Category {
+  return CADENCE_CATEGORY[cadence] ?? 'classique';
+}
+
+export function cadenceToRatingKind(cadence: string): RatingKind {
+  return CADENCE_RATING[cadence] ?? 'standardElo';
+}
 
 export function loadCadenceMap(): Record<string, Category> {
   if (!existsSync(CADENCE_MAP_PATH)) { return {}; }

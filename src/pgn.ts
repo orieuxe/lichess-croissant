@@ -25,6 +25,10 @@ export function removeTag(game: string, tag: string): string {
   return game.replace(re, '');
 }
 
+export function sideColor(ourSide: 'White' | 'Black'): 'B' | 'N' {
+  return ourSide === 'White' ? 'B' : 'N';
+}
+
 export function resultFromFfe(
   ffeResult: '+' | '=' | '-',
   ourSide: 'White' | 'Black',
@@ -54,7 +58,7 @@ export function previewMoves(game: string, tokenCount = 14): string {
 export function desiredChapterTitle(game: string, ourName: string): string {
   const ourSide = getTag(game, 'White') === ourName ? 'White' : 'Black';
   const oppSide = ourSide === 'White' ? 'Black' : 'White';
-  const letter = ourSide === 'White' ? 'B' : 'N';
+  const letter = sideColor(ourSide);
   const oppName = getTag(game, oppSide) ?? '?';
   const oppElo = getTag(game, `${oppSide}Elo`) ?? '?';
   return `${letter} vs ${oppName} ${oppElo}`;

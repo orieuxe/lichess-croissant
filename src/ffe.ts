@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { sideColor } from './pgn.ts';
 
 export interface FicheTournoi {
   title: string;
@@ -196,7 +197,7 @@ export async function fetchClosedRounds(
     const opponentName = stripTitle(isWhite ? blackName : whiteName).trim();
     rounds.push({
       round: currentRound,
-      color: isWhite ? 'B' : 'N',
+      color: sideColor(isWhite ? 'White' : 'Black'),
       result: parseClosedResult(resultText, isWhite),
       opponentName,
       opponentElo: eloByName.get(normalizeLooseName(opponentName)) ?? null,

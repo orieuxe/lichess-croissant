@@ -1,4 +1,4 @@
-import { getTag, setTag, previewMoves } from '../pgn.ts';
+import { getTag, setTag, previewMoves, sideColor } from '../pgn.ts';
 import {
   fetchPlayerSlug,
   fetchProfileGames,
@@ -12,15 +12,14 @@ import {
   type OurSideMatch,
 } from '../grandroque.ts';
 import { type FicheTournoi, type RoundResult } from '../ffe.ts';
-import type { Category } from '../cadence.ts';
-import type { RatingKind } from '../fide.ts';
+import { cadenceToCategory, cadenceToRatingKind } from '../cadence.ts';
 import type { MatchResult } from './match-round.ts';
 
 export { type CompetitionGroup } from './match-round.ts';
 
 export function describeMatch(o: OurSideMatch): string {
   const date = (o.game.date || '').slice(0, 10);
-  return `${o.game.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.game.result} — ${date} (r${o.game.round_number})`;
+  return `${o.game.competition_title} — ${sideColor(o.ourSide)} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.game.result} — ${date} (r${o.game.round_number})`;
 }
 
 export function resolveHintName(chapterName: string): string {
@@ -35,7 +34,7 @@ export function buildRoundFromMatch(
   event?: string,
 ): { game: string; round: RoundResult } {
   const o = ourSideOf(pg, ourName);
-  const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
+  const color: 'B' | 'N' = sideColor(o.ourSide);
   if (o.opponentFideId) {
     const oppSide = color === 'B' ? 'Black' : 'White';
     game = setTag(game, `${oppSide}FideId`, String(o.opponentFideId));
@@ -248,8 +247,8 @@ export async function runGrandroqueFlow(
   }
 
   const cadence = filtered[0].cadence;
-  const category: Category = cadence === 'classical' ? 'classique' : 'non-classique';
-  const ratingKind: RatingKind = cadence === 'classical' ? 'standardElo' : cadence === 'rapid' ? 'rapidElo' : 'blitzElo';
+  const category = cadenceToCategory(cadence);
+  const ratingKind = cadenceToRatingKind(cadence);
 
   const fiche: FicheTournoi = {
     title: studyName, startDate: '', endDate: '', numRounds: includedIndices.length, cadenceText: '', resultsLinks: {},

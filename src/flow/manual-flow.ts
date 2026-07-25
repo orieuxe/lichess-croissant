@@ -2,6 +2,7 @@ import { getTag, previewMoves } from '../pgn.ts';
 import type { RoundResult } from '../ffe.ts';
 import type { Category } from '../cadence.ts';
 import type { RatingKind } from '../fide.ts';
+import { cadenceToCategory, cadenceToRatingKind } from '../cadence.ts';
 
 export interface ParsedChapterTitle {
   color: 'B' | 'N';
@@ -26,23 +27,13 @@ export async function runManualMode(
   games: string[],
   ask: (q: string) => Promise<string>,
 ): Promise<{ rounds: RoundResult[]; category: Category; ratingKind: RatingKind }> {
+  const KEY: Record<string, string> = { s: 'classical', r: 'rapid', b: 'blitz' };
   while (true) {
     const cadence = await ask('Cadence — [s] standard/classique, [r] rapide, [b] blitz : ');
-    const c = cadence.trim().toLowerCase();
-    let category: Category;
-    let ratingKind: RatingKind;
-    if (c === 's') {
-      category = 'classique';
-      ratingKind = 'standardElo';
-    } else if (c === 'r') {
-      category = 'non-classique';
-      ratingKind = 'rapidElo';
-    } else if (c === 'b') {
-      category = 'non-classique';
-      ratingKind = 'blitzElo';
-    } else {
-      continue;
-    }
+    const resolved = KEY[cadence.trim().toLowerCase()];
+    if (!resolved) continue;
+    const category = cadenceToCategory(resolved);
+    const ratingKind = cadenceToRatingKind(resolved);
 
     const rounds: RoundResult[] = [];
     for (const [i, g] of games.entries()) {
