@@ -113,17 +113,24 @@ async function main() {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;
     const ourEloValue = ownElo.replace(/\s*F$/, '');
 
-    const eventAnswer = await ask(
-      ffeUrl
-        ? `Event (vide = nom study "${study.name}", "f" = titre FFE "${fiche.title}", ou texte libre) : `
-        : `Event (vide = "${fiche.title}", ou texte libre) : `,
-    );
-    const eventValue
-      = eventAnswer.trim() === ''
-        ? (ffeUrl ? study.name : fiche.title)
-        : ffeUrl && eventAnswer.trim().toLowerCase() === 'f'
-          ? fiche.title
-          : eventAnswer.trim();
+    const uniqueEvents = [...new Set(rounds.map(r => r.event).filter(Boolean))];
+    let eventPrompt: string;
+    if (ffeUrl) {
+      eventPrompt = `Event (vide = nom study "${study.name}", "f" = titre FFE "${fiche.title}", ou texte libre) : `;
+    } else if (uniqueEvents.length > 0) {
+      const opts = uniqueEvents.map((e, i) => `"${i + 1}" = "${e}"`).join(', ');
+      eventPrompt = `Event (vide = "${study.name}", ${opts}, ou texte libre) : `;
+    } else {
+      eventPrompt = `Event (vide = "${study.name}", ou texte libre) : `;
+    }
+    const eventAnswer = await ask(eventPrompt).then(a => a.trim());
+    const eventValue = (() => {
+      if (eventAnswer === '') return ffeUrl ? study.name : study.name;
+      if (ffeUrl && eventAnswer.toLowerCase() === 'f') return fiche.title;
+      const n = parseInt(eventAnswer, 10) - 1;
+      if (uniqueEvents[n]) return uniqueEvents[n];
+      return eventAnswer;
+    })();
 
     const enrichedGames = await enrichGames(
       { games, includedIndices, rounds, fiche, ffeUrl, eventValue, our, ratingKind, ourEloValue },
