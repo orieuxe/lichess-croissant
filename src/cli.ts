@@ -10,6 +10,7 @@ import {
 import { classifyCadence, type Category } from './cadence.ts';
 import { splitGames, getTag, previewMoves, desiredChapterTitle } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
+import { syncToDb } from './en-croissant.ts';
 import { resolveFideName, getFidePlayer, resolveFideById, normalizeUnmatchedName, type ResolvedFideName } from './fide.ts';
 import { pickStudy } from './flow/study-select.ts';
 import { matchRound } from './flow/match-round.ts';
@@ -174,6 +175,19 @@ async function main() {
     } else {
       const merged = mergeCategory(category, includedIndices.map(i => enrichedGames[i]));
       console.log(`Fusionné dans ${merged}`);
+
+      // synchro vers en-croissant (2 DBs, classique / non-classique)
+      const enCroissantDir = process.env.ENCROISSANT_DB_DIR;
+      if (enCroissantDir) {
+        const dbName = category === 'classique' ? 'Mes Parties.db3' : 'Mes Parties (non classique).db3';
+        const dbPath = `${enCroissantDir}/${dbName}`;
+        try {
+          const count = syncToDb(merged, dbPath);
+          if (count > 0) console.log(`${count} partie(s) ajoutée(s) à ${dbName}.`);
+        } catch (err) {
+          console.warn(`Sync en-croissant échouée: ${(err as Error).message}`);
+        }
+      }
 
       manifest[study.id] = filename;
       saveManifest(manifest);
