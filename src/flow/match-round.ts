@@ -4,7 +4,6 @@ import { getTag, setTag, previewMoves } from '../pgn.ts';
 import {
   fetchPlayerSlug,
   fetchProfileGames,
-  fetchStoryEvents,
   matchGame,
   rankedGames,
   parseChapterHint,
@@ -114,20 +113,6 @@ async function runManualMode(
 // matches by competition_title (inexact — the same title appears across
 // multiple seasons/divisions, but the user picked a specific one from the
 // list which includes year, so in practice this is correct).
-function filterGamesByEvents(games: ProfileGame[], eventKeys: Set<string>): ProfileGame[] {
-  const tournamentIds = new Set<string>();
-  const competitionTitles = new Set<string>();
-  for (const key of eventKeys) {
-    if (key.startsWith('tournament:')) tournamentIds.add(key.slice('tournament:'.length));
-    else if (key.startsWith('competition:')) competitionTitles.add(key.slice('competition:'.length).split('|')[0]);
-  }
-  return games.filter((g) => {
-    if (g.tournament_id && tournamentIds.has(g.tournament_id)) return true;
-    if (g.source_type === 'competition_board_result' && competitionTitles.has(g.competition_title)) return true;
-    return false;
-  });
-}
-
 // Single tournament selected: chapters are in the same order as the
 // filtered grandroque matches — positional pairing, no name lookup needed.
 function positionalMatch(
@@ -245,37 +230,50 @@ async function manualPick(
   return options[idx];
 }
 
-// Load and show story-events, let the user pick one or more.
-async function pickEvents(
-  slug: string,
+// Group profile games by competition_title, show full names with counts
+// (the story-events endpoint truncates labels), let the user pick.
+async function pickCompetitions(
+  allGames: ProfileGame[],
   ask: (q: string) => Promise<string>,
 ): Promise<Set<string> | null> {
-  const events = await fetchStoryEvents(slug);
-  if (events.length === 0) {
-    console.warn('Aucun événement trouvé sur grandroque.');
-    return null;
+  const groups = new Map<string, { count: number; firstDate: string; lastDate: string }>();
+  for (const g of allGames) {
+    const existing = groups.get(g.competition_title);
+    if (existing) {
+      existing.count++;
+      if (g.date > existing.lastDate) existing.lastDate = g.date;
+      if (g.date < existing.firstDate) existing.firstDate = g.date;
+    } else {
+      groups.set(g.competition_title, { count: 1, firstDate: g.date, lastDate: g.date });
+    }
   }
+  const entries = [...groups.entries()]
+    .map(([title, info]) => {
+      const [ys, ye] = [info.firstDate?.slice(0, 4), info.lastDate?.slice(0, 4)].filter(Boolean);
+      const season = ys ? (ys === ye ? ys : `${ys}-${ye}`) : '';
+      return { title, count: info.count, lastDate: info.lastDate, label: season ? `${title} (${season})` : title };
+    })
+    .sort((a, b) => b.lastDate.localeCompare(a.lastDate));
   const PAGE = 10;
-  const keys = new Set<string>();
+  const titles = new Set<string>();
   let offset = 0;
   while (true) {
-    const slice = events.slice(offset, offset + PAGE);
-    console.log(`\nTournois/compétitions grandroque (${offset + 1}-${Math.min(offset + PAGE, events.length)}/${events.length}) :`);
-    slice.forEach((e, i) => console.log(`  ${i + 1}. ${e.label} (${e.sublabel}) — ${e.games} parties — ${e.date.slice(0, 10)}`));
-    const hasMore = offset + PAGE < events.length;
+    const slice = entries.slice(offset, offset + PAGE);
+    console.log(`\nCompétitions (${offset + 1}-${Math.min(offset + PAGE, entries.length)}/${entries.length}) :`);
+    slice.forEach((e, i) =>
+      console.log(`  ${i + 1}. ${e.label} — ${e.count} parties — ${e.lastDate.slice(0, 10)}`));
+    const hasMore = offset + PAGE < entries.length;
     const prompt = hasMore
-      ? 'Numéro(s) (virgule pour plusieurs, "+" = voir plus, vide = annuler) : '
-      : 'Numéro(s) (virgule pour plusieurs, vide = annuler) : ';
+      ? 'Numéro(s) (virgule, "+" = voir plus, vide = annuler) : '
+      : 'Numéro(s) (virgule, vide = annuler) : ';
     const pick = (await ask(prompt)).trim();
-    if (pick === '+') {
-      offset += PAGE;
-      continue;
-    }
+    if (pick === '+') { offset += PAGE; continue; }
     if (!pick) return null;
     for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
-      if (events[offset + n]) keys.add(events[offset + n].key);
+      const entry = entries[offset + n];
+      if (entry) titles.add(entry.title);
     }
-    return keys.size ? keys : null;
+    return titles.size ? titles : null;
   }
 }
 
@@ -326,9 +324,6 @@ export async function matchRound(
       continue;
     }
 
-    const eventKeys = await pickEvents(slug, ask);
-    if (!eventKeys) continue;
-
     try {
       allGames = await fetchProfileGames(slug);
     } catch {
@@ -342,16 +337,19 @@ export async function matchRound(
       continue;
     }
 
-    const filtered = filterGamesByEvents(allGames, eventKeys);
+    const selectedTitles = await pickCompetitions(allGames, ask);
+    if (!selectedTitles) continue;
+
+    const filtered = allGames.filter(g => selectedTitles.has(g.competition_title));
     if (filtered.length === 0) {
-      console.warn('Aucune partie trouvée pour les événements sélectionnés.');
+      console.warn('Aucune partie trouvée pour les compétitions sélectionnées.');
       continue;
     }
     console.log(`${filtered.length} parties filtrées sur ${allGames.length} au total.`);
 
     let rounds: RoundResult[];
     let includedIndices: number[];
-    if (eventKeys.size === 1) {
+    if (selectedTitles.size === 1) {
       ({ rounds, includedIndices } = positionalMatch(games, filtered, ourName));
     } else {
       ({ rounds, includedIndices, games } = await nameBasedMatch(games, filtered, ourName, ask));
