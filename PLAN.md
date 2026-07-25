@@ -2,7 +2,7 @@
 
 ## Fait (phase 1)
 
-- Download study lichess (compte `timoruu` uniquement), suggestion via manifest `studyId → filename`
+- Download study lichess (compte lichess configuré dans `.env`), suggestion via manifest `studyId → filename`
 - Studies à ignorer définitivement (`ignored.json`, prompt `i<numéro>`)
 - Scraping FFE : fiche (dates/rondes/cadence/titre) + grille américaine (rondes/adversaires/elo), lien résultats découvert dynamiquement depuis la fiche (plus de `Action=Ga` en dur)
 - Tournoi fermé/round-robin (que `Grille Berger`, pas de `Ga`) → alerte claire, skip enrichissement rondes, pas de parser Berger (pas de besoin réel encore)
