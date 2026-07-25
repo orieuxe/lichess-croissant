@@ -29,6 +29,15 @@ export interface OurSideMatch {
   opponentFideId: number | null;
 }
 
+export interface StoryEvent {
+  key: string;
+  type: 'tournament' | 'competition';
+  label: string;
+  sublabel: string;
+  games: number;
+  date: string;
+}
+
 // Resolves the profile slug from a FIDE id — avoids name-search ambiguity.
 export async function fetchPlayerSlug(fideId: string): Promise<string | null> {
   try {
@@ -56,6 +65,58 @@ export async function fetchProfileGames(slug: string): Promise<ProfileGame[]> {
     cursor = page.next_cursor;
   }
   return all;
+}
+
+// Tournament/competition summary, one entry per event the player has
+// participated in — used as a picker to narrow down which games to fetch.
+export async function fetchStoryEvents(slug: string): Promise<StoryEvent[]> {
+  try {
+    const res = await fetch(`${API}/profiles/${encodeURIComponent(slug)}/story-events`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.events ?? []).map((e: { key: string; type: string; label: string; sublabel: string; games: number; date: string }) => ({
+      key: e.key,
+      type: e.type as 'tournament' | 'competition',
+      label: e.label,
+      sublabel: e.sublabel,
+      games: e.games,
+      date: e.date,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Converts a FFE RoundResult (from the classic FFE scraper flow) into a
+// synthetic ProfileGame so it can sit in the same pool as grandroque's own
+// games during manual matching — same shape, different source.
+export function ffeRoundToProfileGame(r: import('./ffe.ts').RoundResult, ffeUrl: string): ProfileGame {
+  const absoluteResult
+    = r.result === '='
+      ? '1/2-1/2'
+      : r.result === '+'
+        ? (r.color === 'B' ? '1-0' : '0-1')
+        : r.result === '-'
+          ? (r.color === 'B' ? '0-1' : '1-0')
+          : '*';
+  return {
+    id: `ffe-${ffeUrl}-r${r.round}`,
+    date: '',
+    competition_title: '',
+    competition_id: null,
+    tournament_id: null,
+    board_number: 0,
+    round_number: r.round,
+    white_player_name: r.color === 'B' ? '' : (r.opponentName ?? ''),
+    white_elo: r.color === 'B' ? null : (r.opponentElo ? parseInt(r.opponentElo, 10) || null : null),
+    white_fide_id: null,
+    black_player_name: r.color === 'N' ? '' : (r.opponentName ?? ''),
+    black_elo: r.color === 'N' ? null : (r.opponentElo ? parseInt(r.opponentElo, 10) || null : null),
+    black_fide_id: null,
+    result: absoluteResult,
+    cadence: 'classical',
+    source_type: 'ffe',
+  };
 }
 
 function normalizeName(s: string): string {

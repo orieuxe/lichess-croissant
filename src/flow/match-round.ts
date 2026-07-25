@@ -1,15 +1,16 @@
-import { readFileSync } from 'node:fs';
-import { downloadStudy, type StudyRef } from '../lichess.ts';
+import { type StudyRef } from '../lichess.ts';
 import { fetchFiche, fetchRounds, fetchClosedRounds, type FicheTournoi, type RoundResult } from '../ffe.ts';
-import { splitGames, getTag, setTag, previewMoves } from '../pgn.ts';
+import { getTag, setTag, previewMoves } from '../pgn.ts';
 import {
   fetchPlayerSlug,
   fetchProfileGames,
+  fetchStoryEvents,
   matchGame,
   rankedGames,
   parseChapterHint,
   resultRelativeToUs,
   ourSideOf,
+  type ProfileGame,
   type OurSideMatch,
 } from '../grandroque.ts';
 import type { Category } from '../cadence.ts';
@@ -21,8 +22,6 @@ export interface ParsedChapterTitle {
   opponentElo: string | null;
 }
 
-// convention "B/N vs Nom, Prénom elo" tapée par le joueur lui-même (voir
-// desiredChapterTitle dans cli.ts) — best-effort, rien de garanti.
 export function parseManualChapterTitle(chapterName: string): ParsedChapterTitle | null {
   const m = chapterName.match(/^(B|N)\s+vs\s+(.+?)(?:\s+(\d{3,4}))?\s*$/i);
   if (!m) return null;
@@ -33,24 +32,18 @@ export function parseManualChapterTitle(chapterName: string): ParsedChapterTitle
   };
 }
 
-// Bye-round prompt: only treat the input as round numbers if the WHOLE
-// string looks like one, so free text ("laisse tel quel") isn't misread as
-// a number buried in a sentence.
 export function parseRoundNumbers(input: string): number[] {
   const trimmed = input.trim();
   if (!/^[\d\s,]+$/.test(trimmed)) return [];
   return trimmed.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !Number.isNaN(n));
 }
 
-// Exclude-games prompt: lenient, 1-based numbers -> 0-based indices.
 export function parseExcludedIndices(input: string): Set<number> {
   return new Set(
     input.split(',').map(s => parseInt(s.trim(), 10) - 1).filter(n => !Number.isNaN(n)),
   );
 }
 
-// Chapter Date/UTCDate (before it's stripped) as a proximity signal for
-// grandroque matching — best-effort, missing/"?" dates are common.
 export function chapterDateHint(game: string): Date | null {
   const raw = getTag(game, 'UTCDate') ?? getTag(game, 'Date');
   if (!raw || raw.includes('?')) return null;
@@ -68,103 +61,90 @@ export interface MatchResult {
   category: Category | null;
 }
 
-// mode manuel: pas de fiche FFE donc pas de cadence texte à classifier — on
-// demande direct le format, ce qui donne à la fois la catégorie de merge et
-// quel rating FIDE (standard/rapide/blitz) piocher pour les Elo.
-async function askCadenceKind(
-  ask: (q: string) => Promise<string>,
-): Promise<{ category: Category; ratingKind: RatingKind }> {
-  while (true) {
-    const answer = (await ask('Cadence — [s] standard/classique, [r] rapide, [b] blitz : '))
-      .trim()
-      .toLowerCase();
-    if (answer === 's') return { category: 'classique', ratingKind: 'standardElo' };
-    if (answer === 'r') return { category: 'non-classique', ratingKind: 'rapidElo' };
-    if (answer === 'b') return { category: 'non-classique', ratingKind: 'blitzElo' };
-  }
-}
-
-async function askMode(ask: (q: string) => Promise<string>): Promise<'ffe' | 'vrac' | 'manuel'> {
-  while (true) {
-    const answer = (await ask(
-      'Tournoi solo FFE [f], compétition par équipe [e] (interclubs/coupe de France), parties non officielles [m] : ',
-    )).trim().toLowerCase();
-    if (answer.startsWith('f')) return 'ffe';
-    if (answer.startsWith('e')) return 'vrac';
-    if (answer.startsWith('m')) return 'manuel';
-  }
-}
-
 function describeMatch(o: OurSideMatch): string {
   const date = o.game.date.slice(0, 10);
-  return `${o.game.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.game.result} — ${date} (ronde ${o.game.round_number})`;
+  return `${o.game.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.game.result} — ${date} (r${o.game.round_number})`;
 }
 
-// mode vrac (grandroque, PLAN.md) : pas de fiche FFE unique, chaque chapitre
-// est matché contre /profiles/{slug}/games (toutes les parties du joueur,
-// équipe ET individuelles). Round est le vrai round_number, TimeControl est
-// la cadence réelle, Event est le competition_title — tout vient du même
-// endpoint, plus besoin de heuristique ni de compteur local.
-async function runVracMode(
+// mode manuel: pas de fiche FFE, pas de grandroque — deviner le nom depuis
+// le ChapterName ou demander le FIDE id à la main.
+async function runManualMode(
   games: string[],
-  ourFideId: string,
-  ourName: string,
-  studyName: string,
   ask: (q: string) => Promise<string>,
-): Promise<MatchResult | null> {
-  const slug = await fetchPlayerSlug(ourFideId);
-  if (!slug) {
-    console.warn(`ALERTE: joueur introuvable sur grandroque (FIDE ${ourFideId}).`);
-    return null;
-  }
-  const candidates = await fetchProfileGames(slug);
-  if (candidates.length === 0) {
-    console.warn(`ALERTE: aucune partie grandroque trouvée pour le slug "${slug}".`);
-    return null;
-  }
-
-  const rounds: RoundResult[] = [];
-  const includedIndices: number[] = [];
-
-  for (const [i, g] of games.entries()) {
-    const chapterName = getTag(g, 'ChapterName') ?? '';
-    const hint = parseChapterHint(chapterName);
-    const hintName = hint.opponentName ?? '';
-    let pg = hintName ? matchGame(hintName, candidates, ourName) : null;
-
-    if (pg) {
-      const o = ourSideOf(pg, ourName);
-      console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — auto : ${describeMatch(o)}`);
-    } else if (hintName) {
-      const options = rankedGames(hintName, candidates, ourName);
-      if (options.length === 0) {
-        console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat grandroque, chapitre exclu.`);
-        continue;
-      }
-      console.log(`\nPartie ${i + 1} (${chapterName || previewMoves(g, 10)}) — plusieurs candidats grandroque :`);
-      options.forEach((g, idx) => {
-        const o = ourSideOf(g, ourName);
-        console.log(`  ${idx + 1}. ${describeMatch(o)}`);
-      });
-      const pick = await ask('Numéro (vide = exclure ce chapitre) : ');
-      const idx = parseInt(pick.trim(), 10) - 1;
-      if (!options[idx]) {
-        console.log('Chapitre exclu.');
-        continue;
-      }
-      pg = options[idx];
+): Promise<{ rounds: RoundResult[]; category: Category; ratingKind: RatingKind }> {
+  while (true) {
+    const cadence = await ask('Cadence — [s] standard/classique, [r] rapide, [b] blitz : ');
+    const c = cadence.trim().toLowerCase();
+    let category: Category;
+    let ratingKind: RatingKind;
+    if (c === 's') {
+      category = 'classique';
+      ratingKind = 'standardElo';
+    } else if (c === 'r') {
+      category = 'non-classique';
+      ratingKind = 'rapidElo';
+    } else if (c === 'b') {
+      category = 'non-classique';
+      ratingKind = 'blitzElo';
     } else {
-      console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — titre de chapitre pas parsable, chapitre exclu.`);
       continue;
     }
 
+    const rounds: RoundResult[] = [];
+    for (const [i, g] of games.entries()) {
+      const chapterName = getTag(g, 'ChapterName') ?? '';
+      const parsed = parseManualChapterTitle(chapterName);
+      if (parsed) {
+        rounds.push({ round: i + 1, color: parsed.color, result: null, opponentName: parsed.opponentName, opponentElo: parsed.opponentElo });
+      } else {
+        const colorAnswer = await ask(
+          `Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — tu jouais Blanc ou Noir ? [b/n] `,
+        );
+        const color = colorAnswer.trim().toLowerCase().startsWith('n') ? 'N' : 'B';
+        rounds.push({ round: i + 1, color, result: null, opponentName: null, opponentElo: null });
+      }
+    }
+    return { rounds, category, ratingKind };
+  }
+}
+
+// Filters profile games to those belonging to one or more story-events.
+// For tournament type: matches by tournament_id. For competition type:
+// matches by competition_title (inexact — the same title appears across
+// multiple seasons/divisions, but the user picked a specific one from the
+// list which includes year, so in practice this is correct).
+function filterGamesByEvents(games: ProfileGame[], eventKeys: Set<string>): ProfileGame[] {
+  const tournamentIds = new Set<string>();
+  const competitionTitles = new Set<string>();
+  for (const key of eventKeys) {
+    if (key.startsWith('tournament:')) tournamentIds.add(key.slice('tournament:'.length));
+    else if (key.startsWith('competition:')) competitionTitles.add(key.slice('competition:'.length).split('|')[0]);
+  }
+  return games.filter((g) => {
+    if (g.tournament_id && tournamentIds.has(g.tournament_id)) return true;
+    if (g.source_type === 'competition_board_result' && competitionTitles.has(g.competition_title)) return true;
+    return false;
+  });
+}
+
+// Single tournament selected: chapters are in the same order as the
+// filtered grandroque matches — positional pairing, no name lookup needed.
+function positionalMatch(
+  games: string[],
+  filtered: ProfileGame[],
+  ourName: string,
+): { rounds: RoundResult[]; includedIndices: number[] } {
+  const rounds: RoundResult[] = [];
+  const includedIndices: number[] = [];
+  const sorted = [...filtered].sort((a, b) => a.round_number - b.round_number);
+  for (let i = 0; i < Math.min(games.length, sorted.length); i++) {
+    const pg = sorted[i];
     const o = ourSideOf(pg, ourName);
     const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
     if (o.opponentFideId) {
       const oppSide = color === 'B' ? 'Black' : 'White';
       games[i] = setTag(games[i], `${oppSide}FideId`, String(o.opponentFideId));
     }
-
     rounds.push({
       round: pg.round_number,
       color,
@@ -175,161 +155,221 @@ async function runVracMode(
     });
     includedIndices.push(i);
   }
-
-  if (includedIndices.length === 0) {
-    console.warn('ALERTE: aucune partie matchée en mode vrac.');
-    return null;
-  }
-
-  const fiche: FicheTournoi = {
-    title: studyName,
-    startDate: '',
-    endDate: '',
-    numRounds: includedIndices.length,
-    cadenceText: '',
-    resultsLinks: {},
-  };
-
-  const cadence = candidates[0].cadence;
-  const category: Category = cadence === 'classical' ? 'classique' : 'non-classique';
-  const ratingKind: RatingKind = cadence === 'classical' ? 'standardElo' : cadence === 'rapid' ? 'rapidElo' : 'blitzElo';
-
-  return { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind, category };
+  return { rounds, includedIndices };
 }
 
-// The mode-select / FFE-link / mode-manuel / mode-vrac loop: resolve which
-// rounds/opponents apply to this download, retrying on a bad link or a
-// games/rounds-count mismatch, until a usable match is built.
+// Multiple tournaments: name-based matching with manual fallback.
+async function nameBasedMatch(
+  games: string[],
+  filtered: ProfileGame[],
+  ourName: string,
+  ask: (q: string) => Promise<string>,
+): Promise<{ rounds: RoundResult[]; includedIndices: number[]; games: string[] }> {
+  const rounds: RoundResult[] = [];
+  const includedIndices: number[] = [];
+
+  for (const [i, g] of games.entries()) {
+    const chapterName = getTag(g, 'ChapterName') ?? '';
+    const hint = parseChapterHint(chapterName);
+    const hintName = hint.opponentName ?? '';
+    let pg: ProfileGame | null = hintName ? matchGame(hintName, filtered, ourName) : null;
+
+    if (pg) {
+      const o = ourSideOf(pg, ourName);
+      console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — auto : ${describeMatch(o)}`);
+    } else {
+      pg = await manualPick(i, g, chapterName, hintName, filtered, ourName, ask);
+      if (!pg) continue;
+    }
+
+    const o = ourSideOf(pg, ourName);
+    const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
+    if (o.opponentFideId) {
+      const oppSide = color === 'B' ? 'Black' : 'White';
+      games[i] = setTag(games[i], `${oppSide}FideId`, String(o.opponentFideId));
+    }
+    rounds.push({
+      round: pg.round_number,
+      color,
+      result: resultRelativeToUs(pg.result, o.ourSide),
+      opponentName: o.opponentName,
+      opponentElo: o.opponentElo !== null ? String(o.opponentElo) : null,
+      event: pg.competition_title,
+    });
+    includedIndices.push(i);
+  }
+  return { rounds, includedIndices, games };
+}
+
+// Manual pick from the filtered pool — can be extended with FFE-fetched
+// games mixed in (passed as the same candidate list, via ffeRoundToProfileGame).
+async function manualPick(
+  i: number,
+  g: string,
+  chapterName: string,
+  hintName: string,
+  candidates: ProfileGame[],
+  ourName: string,
+  ask: (q: string) => Promise<string>,
+): Promise<ProfileGame | null> {
+  if (!hintName) {
+    console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — titre de chapitre pas parsable, chapitre exclu.`);
+    return null;
+  }
+  const options = rankedGames(hintName, candidates, ourName);
+  if (options.length === 0) {
+    console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat, chapitre exclu.`);
+    return null;
+  }
+  console.log(`\nPartie ${i + 1} (${chapterName || previewMoves(g, 10)}) — choisis :`);
+  options.forEach((pg, idx) => {
+    const o = ourSideOf(pg, ourName);
+    console.log(`  ${idx + 1}. ${describeMatch(o)}`);
+  });
+  const pick = await ask('Numéro (vide = exclure ce chapitre) : ');
+  const idx = parseInt(pick.trim(), 10) - 1;
+  if (!options[idx]) {
+    console.log('Chapitre exclu.');
+    return null;
+  }
+  return options[idx];
+}
+
+// Load and show story-events, let the user pick one or more.
+async function pickEvents(
+  slug: string,
+  ask: (q: string) => Promise<string>,
+): Promise<Set<string> | null> {
+  const events = await fetchStoryEvents(slug);
+  if (events.length === 0) {
+    console.warn('Aucun événement trouvé sur grandroque.');
+    return null;
+  }
+  console.log('\nTournois/compétitions grandroque :');
+  events.forEach((e, i) => console.log(`  ${i + 1}. [${e.type}] ${e.label} (${e.sublabel}) — ${e.games} parties — ${e.date.slice(0, 10)}`));
+  const pick = await ask('Numéro(s) (virgule pour plusieurs, vide = annuler) : ');
+  if (!pick.trim()) return null;
+  const keys = new Set<string>();
+  for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
+    if (events[n]) keys.add(events[n].key);
+  }
+  return keys.size ? keys : null;
+}
+
+// The main entry point: picks the mode (FIDE/grandroque vs. manual),
+// resolves the round/opponent data, and returns a MatchResult ready for
+// enrichment.
 export async function matchRound(
   study: StudyRef,
   initialFilename: string,
   initialGames: string[],
   ourFideId: string,
   ourName: string,
+  ffeMatchName: string,
   ask: (q: string) => Promise<string>,
 ): Promise<{ match: MatchResult | null; filename: string; games: string[] }> {
-  let filename = initialFilename;
+  const filename = initialFilename;
   let games = initialGames;
-  // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
-  const ffeMatchName = ourName.replace(',', '');
 
   while (true) {
-    const mode = await askMode(ask);
-
-    let fiche: FicheTournoi;
-    let ffeUrl = '';
-    let ownElo = '';
-    let rounds: RoundResult[];
-    let ratingKind: RatingKind = 'standardElo';
-    let manualCategory: Category | null = null;
-
-    if (mode === 'vrac') {
-      const vracMatch = await runVracMode(games, ourFideId, ourName, study.name, ask);
-      if (!vracMatch) continue;
-      return { match: vracMatch, filename, games };
-    }
-
-    if (mode === 'manuel') {
-      // pas de confirmation supplémentaire ici — le "n" final à
-      // "Sauvegarder ?" couvre déjà le cas "en fait j'annule tout".
-      ({ category: manualCategory, ratingKind } = await askCadenceKind(ask));
-
-      fiche = {
-        title: study.name,
-        startDate: '',
-        endDate: '',
-        numRounds: games.length,
-        cadenceText: '',
-        resultsLinks: {},
+    const answer = (await ask('Partie FIDE officielle ? [o/n] ')).trim().toLowerCase();
+    if (answer === 'n') {
+      // mode manuel inchangé
+      const { rounds, category, ratingKind } = await runManualMode(games, ask);
+      const fiche: FicheTournoi = {
+        title: study.name, startDate: '', endDate: '', numRounds: games.length, cadenceText: '', resultsLinks: {},
       };
-      rounds = [];
-      for (const [i, g] of games.entries()) {
-        const chapterName = getTag(g, 'ChapterName') ?? '';
-        const parsed = parseManualChapterTitle(chapterName);
-        let color: 'B' | 'N';
-        let opponentName: string | null = null;
-        let opponentElo: string | null = null;
-        if (parsed) {
-          ({ color, opponentName, opponentElo } = parsed);
-        } else {
-          const colorAnswer = await ask(
-            `Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — tu jouais Blanc ou Noir ? [b/n] `,
-          );
-          color = colorAnswer.trim().toLowerCase().startsWith('n') ? 'N' : 'B';
-        }
-        rounds.push({ round: i + 1, color, result: null, opponentName, opponentElo });
+      const includedIndices = games.map((_, i) => i);
+      return { match: { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind, category }, filename, games };
+    }
+    if (answer !== 'o') continue;
+
+    // flow grandroque
+    try {
+      const slug = await fetchPlayerSlug(ourFideId);
+      if (!slug) {
+        console.warn('Joueur introuvable sur grandroque.');
+        const fallback = await askFfeLink(ask, games, ffeMatchName);
+        if (fallback) return fallback;
+        continue;
       }
-    } else {
-      const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi : ');
-      if (!ffeUrlAnswer.trim()) continue;
-      const raw = ffeUrlAnswer.trim();
-      ffeUrl = /^\d+$/.test(raw)
-        ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`
-        : raw;
 
-      fiche = await fetchFiche(ffeUrl);
+      const eventKeys = await pickEvents(slug, ask);
+      if (!eventKeys) continue;
 
-      if (fiche.resultsLinks.Ga) {
-        ({ ownElo, rounds } = await fetchRounds(fiche.resultsLinks.Ga, ffeMatchName));
-      } else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
-        // closed/round-robin tournament: no Grille Américaine, same data lives
-        // across the Pairing (round-by-round) and Berger (name→Elo) pages.
-        ({ ownElo, rounds } = await fetchClosedRounds(
-          fiche.resultsLinks.Pairing,
-          fiche.resultsLinks.Berger,
-          ffeMatchName,
-        ));
+      const allGames = await fetchProfileGames(slug);
+      if (allGames.length === 0) {
+        console.warn('Aucune partie sur grandroque.');
+        continue;
+      }
+
+      const filtered = filterGamesByEvents(allGames, eventKeys);
+      if (filtered.length === 0) {
+        console.warn('Aucune partie trouvée pour les événements sélectionnés.');
+        continue;
+      }
+      console.log(`${filtered.length} parties filtrées sur ${allGames.length} au total.`);
+
+      let rounds: RoundResult[];
+      let includedIndices: number[];
+      if (eventKeys.size === 1) {
+        ({ rounds, includedIndices } = positionalMatch(games, filtered, ourName));
       } else {
-        console.warn(
-          `ALERTE: pas de "Grille Américaine" ni de "Pairing"+"Berger" pour ce tournoi (formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
-        );
+        ({ rounds, includedIndices, games } = await nameBasedMatch(games, filtered, ourName, ask));
+      }
+
+      if (includedIndices.length === 0) {
+        console.warn('ALERTE: aucune partie matchée.');
         continue;
       }
-    }
 
-    const byeRounds = new Set<number>();
-    while (games.length < fiche.numRounds - byeRounds.size) {
-      const retry = await ask(
-        `\n${games.length} parties téléchargées, ${fiche.numRounds - byeRounds.size} rondes attendues — ajoute les parties manquantes sur la study lichess puis Entrée pour réessayer, numéro(s) de ronde non jouée (bye/forfait, virgule) si c'est ça, ou texte quelconque pour abandonner ce lien : `,
-      );
-      const roundNumbers = parseRoundNumbers(retry);
-      if (roundNumbers.length) {
-        roundNumbers.forEach(n => byeRounds.add(n));
-        continue;
-      }
-      if (retry.trim()) break;
-      filename = await downloadStudy(study.id);
-      games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
-      console.log(`Retéléchargé : downloaded/${filename} (${games.length} parties)`);
-    }
-    if (byeRounds.size) {
-      rounds = rounds.filter(r => !byeRounds.has(r.round));
-      console.log(`Rondes ${[...byeRounds].join(', ')} exclues (bye/forfait déclaré).`);
-    }
-    const expectedRounds = fiche.numRounds - byeRounds.size;
+      const cadence = filtered[0].cadence;
+      const category: Category = cadence === 'classical' ? 'classique' : 'non-classique';
+      const ratingKind: RatingKind = cadence === 'classical' ? 'standardElo' : cadence === 'rapid' ? 'rapidElo' : 'blitzElo';
 
-    let includedIndices = games.map((_, i) => i);
-    if (games.length > expectedRounds) {
-      console.log(
-        `\n${games.length} parties téléchargées, ${expectedRounds} rondes attendues — laquelle exclure ?`,
-      );
-      games.forEach((g, i) => {
-        const chapter = getTag(g, 'ChapterName') ?? getTag(g, 'Event') ?? '?';
-        console.log(`  ${i + 1}. ${chapter} — ${previewMoves(g, 12)}`);
-      });
-      const excludeAnswer = await ask('Numéros à exclure (virgule, vide = aucun) : ');
-      const excluded = parseExcludedIndices(excludeAnswer);
-      includedIndices = includedIndices.filter(i => !excluded.has(i));
-    }
-
-    if (includedIndices.length !== expectedRounds) {
-      console.warn(
-        `ALERTE: ${includedIndices.length} parties retenues vs ${expectedRounds} rondes attendues (mauvais lien ? mauvais tournoi ?).`,
-      );
+      const fiche: FicheTournoi = {
+        title: study.name, startDate: '', endDate: '', numRounds: includedIndices.length, cadenceText: '', resultsLinks: {},
+      };
+      return { match: { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind, category }, filename, games };
+    } catch {
+      console.warn('Grandroque indisponible.');
+      const fallback = await askFfeLink(ask, games, ffeMatchName);
+      if (fallback) return fallback;
       continue;
     }
-
-    const match: MatchResult = { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory };
-    return { match, filename, games };
   }
+}
+
+// Fallback: ask for a FFE link and run the classic FFE scraper flow.
+async function askFfeLink(
+  ask: (q: string) => Promise<string>,
+  games: string[],
+  ffeMatchName: string,
+): Promise<{ match: MatchResult; filename: string; games: string[] } | null> {
+  const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi : ');
+  if (!ffeUrlAnswer.trim()) return null;
+  const raw = ffeUrlAnswer.trim();
+  const ffeUrl = /^\d+$/.test(raw)
+    ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`
+    : raw;
+
+  const fiche = await fetchFiche(ffeUrl);
+  let ownElo: string;
+  let rounds: RoundResult[];
+  if (fiche.resultsLinks.Ga) {
+    ({ ownElo, rounds } = await fetchRounds(fiche.resultsLinks.Ga, ffeMatchName));
+  } else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
+    ({ ownElo, rounds } = await fetchClosedRounds(fiche.resultsLinks.Pairing, fiche.resultsLinks.Berger, ffeMatchName));
+  } else {
+    console.warn('Format FFE non supporté.');
+    return null;
+  }
+
+  const includedIndices = games.map((_, i) => i);
+  if (includedIndices.length !== fiche.numRounds) {
+    console.warn(`ALERTE: ${includedIndices.length} parties vs ${fiche.numRounds} rondes FFE.`);
+    return null;
+  }
+
+  return { match: { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind: 'standardElo', category: null }, filename: '', games };
 }

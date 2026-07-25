@@ -72,8 +72,15 @@ async function askResult(title: string): Promise<'+' | '=' | '-'> {
 
 async function main() {
   if (!FIDE_ID) throw new Error('FIDE_ID not set (check .env)');
-  const ownPlayer = await getFidePlayer(FIDE_ID);
-  if (!ownPlayer) throw new Error(`FIDE id ${FIDE_ID} not found`);
+
+  const fideIdAnswer = await ask(
+    `ID FIDE du joueur (vide = toi, ${FIDE_ID}) : `,
+  );
+  const playerFideId = fideIdAnswer.trim() || FIDE_ID;
+  const isOtherPlayer = playerFideId !== FIDE_ID;
+
+  const ownPlayer = await getFidePlayer(playerFideId);
+  if (!ownPlayer) throw new Error(`FIDE id ${playerFideId} not found`);
   const our: ResolvedFideName = {
     name: ownPlayer.name,
     title: ownPlayer.title,
@@ -82,6 +89,9 @@ async function main() {
     rapidElo: ownPlayer.rapid,
     blitzElo: ownPlayer.blitz,
   };
+  // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
+  const ffeMatchName = our.name.replace(',', '');
+
   const manifest = loadManifest();
   const studies = await listStudies(LICHESS_USERNAME);
 
@@ -97,7 +107,7 @@ async function main() {
   console.log(`Téléchargé : downloaded/${downloadedFilename}`);
   const downloadedGames = splitGames(readFileSync(`downloaded/${downloadedFilename}`, 'utf8'));
 
-  const { match, filename, games } = await matchRound(study, downloadedFilename, downloadedGames, FIDE_ID!, our.name, ask);
+  const { match, filename, games } = await matchRound(study, downloadedFilename, downloadedGames, playerFideId, our.name, ffeMatchName, ask);
 
   if (match) {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;
@@ -131,7 +141,11 @@ async function main() {
       );
       console.log(`    ${previewMoves(g, 24)}`);
     }
-    const confirm = await ask('\nSauvegarder (pgn + merge + manifest + commit local) ? [O/n] ');
+    const confirm = await ask(
+      isOtherPlayer
+        ? '\nSauvegarder le PGN (pas de merge, autre joueur) ? [O/n] '
+        : '\nSauvegarder (pgn + merge + manifest + commit local) ? [O/n] ',
+    );
     if (confirm.trim().toLowerCase().startsWith('n')) {
       console.log('Annulé, rien de sauvegardé.');
       console.log(`Study lichess : https://lichess.org/study/${study.id}`);
@@ -140,15 +154,18 @@ async function main() {
     }
 
     writeFileSync(`downloaded/${filename}`, enrichedGames.join('\n\n\n') + '\n');
-    const merged = mergeCategory(category, includedIndices.map(i => enrichedGames[i]));
-    console.log(`Fusionné dans ${merged}`);
 
-    // ponytail: manifest only written once the flow reaches a deliberate
-    // end (merged) — not right after download — so an aborted/crashed run
-    // never leaves a study wrongly marked as done.
-    manifest[study.id] = filename;
-    saveManifest(manifest);
-    const committed = commitGameData(filename, study.name);
+    let committed = false;
+    if (isOtherPlayer) {
+      console.log('PGN sauvegardé (pas de merge — autre joueur, pas de manifest — relancer si besoin).');
+    } else {
+      const merged = mergeCategory(category, includedIndices.map(i => enrichedGames[i]));
+      console.log(`Fusionné dans ${merged}`);
+
+      manifest[study.id] = filename;
+      saveManifest(manifest);
+      committed = commitGameData(filename, study.name);
+    }
 
     const push = await ask(
       '\nPush maintenant (lichess + github) ? (n = tout reste local, modifie le pgn puis push toi-même) [O/n] ',
