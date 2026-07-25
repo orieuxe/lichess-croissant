@@ -17,7 +17,7 @@ import { matchRound } from './flow/match-round.ts';
 import { enrichGames } from './flow/enrich.ts';
 import { pushChapters } from './flow/push-lichess.ts';
 
-const LICHESS_USERNAME = 'timoruu';
+const LICHESS_USERNAME = process.env.LICHESS_USERNAME;
 const FIDE_ID = process.env.FIDE_ID;
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -65,6 +65,7 @@ async function askResult(title: string): Promise<'+' | '=' | '-'> {
 }
 
 async function main() {
+  if (!LICHESS_USERNAME) { throw new Error('LICHESS_USERNAME not set (check .env)'); }
   if (!FIDE_ID) { throw new Error('FIDE_ID not set (check .env)'); }
 
   const fideIdAnswer = await ask(

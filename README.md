@@ -35,8 +35,9 @@ cp .env.example .env
 `.env` :
 
 ```
-LICHESS_TOKEN=lip_...   # token lichess (scopes study:read, study:write)
-FIDE_ID=...              # identifiant FIDE du joueur
+LICHESS_TOKEN=lip_...     # token lichess (scopes study:read, study:write)
+LICHESS_USERNAME=...      # nom d'utilisateur lichess
+FIDE_ID=...                # identifiant FIDE du joueur
 # optionnel :
 ENCROISSANT_DB_DIR=...   # dossier des DBs en-croissant
 ```
