@@ -173,7 +173,7 @@ async function nameBasedMatch(
   for (const [i, g] of games.entries()) {
     const chapterName = getTag(g, 'ChapterName') ?? '';
     const hint = parseChapterHint(chapterName);
-    const hintName = hint.opponentName ?? extractOpponentFromTitle(chapterName) ?? '';
+    const hintName = hint.opponentName ?? extractOpponentFromTitle(chapterName) ?? (chapterName.includes(' ') ? chapterName : '');
     const available = filtered.filter(c => !usedIds.has(c.id));
     let pg: ProfileGame | null = hintName ? matchGame(hintName, available, ourName) : null;
 
@@ -220,7 +220,9 @@ async function manualPick(
   ask: (q: string) => Promise<string>,
 ): Promise<ProfileGame | null> {
   const available = candidates.filter(c => !usedIds.has(c.id));
-  const options = hintName ? rankedGames(hintName, available, ourName) : available.sort((a, b) => b.date.localeCompare(a.date));
+  const options = hintName
+    ? rankedGames(hintName, available, ourName)
+    : available.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   if (options.length === 0 && hintName) {
     console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — "${hintName}" introuvable dans les événements sélectionnés, chapitre exclu.`);
     return null;
