@@ -113,28 +113,25 @@ async function main() {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;
     const ourEloValue = ownElo.replace(/\s*F$/, '');
 
-    // Prompt Event: un par compétition distincte quand les rounds ont déjà
-    // chacun leur propre event (mode grandroque multi-événements). Sinon,
-    // un seul prompt partagé (FFE ou manuel).
+    // Prompt Event: un par compétition distincte (mode grandroque) ou un seul
+    // (FFE/manual). Le fallback global n'existe pas — si chaque round a son
+    // event, la question globale ne s'applique à rien.
     const eventByRound = new Map<string, string>();
-    if (!ffeUrl) {
-      const uniqueEvents = [...new Set(rounds.map(r => r.event).filter((e): e is string => !!e))];
+    const uniqueEvents = [...new Set(rounds.map(r => r.event).filter((e): e is string => !!e))];
+    let sharedEvent = study.name;
+    if (ffeUrl) {
+      const answer = (await ask(
+        `Event (vide = nom study "${study.name}", "f" = titre FFE "${fiche.title}", ou texte libre) : `,
+      )).trim();
+      sharedEvent = answer === '' ? study.name : answer.toLowerCase() === 'f' ? fiche.title : answer;
+    } else if (uniqueEvents.length > 0) {
       for (const ev of uniqueEvents) {
-        const answer = (await ask(`Event pour "${ev}" (vide = "${ev}", ou texte libre) : `)).trim();
-        eventByRound.set(ev, answer || ev);
+        const answer = (await ask(
+          `Event pour "${ev}" (vide = "${ev}", "s" = "${study.name}", ou texte libre) : `,
+        )).trim();
+        eventByRound.set(ev, answer === '' ? ev : answer.toLowerCase() === 's' ? study.name : answer);
       }
     }
-    const sharedEventAnswer = await ask(
-      ffeUrl
-        ? `Event (vide = nom study "${study.name}", "f" = titre FFE "${fiche.title}", ou texte libre) : `
-        : `Event global (vide = "${study.name}", ou texte libre) : `,
-    ).then(a => a.trim());
-    const sharedEvent
-      = sharedEventAnswer === ''
-        ? study.name
-        : ffeUrl && sharedEventAnswer.toLowerCase() === 'f'
-          ? fiche.title
-          : sharedEventAnswer;
 
     // Applique les renommages event par tournoi (mode grandroque multi-événements)
     if (eventByRound.size > 0) {
