@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { bestMatch, topCandidates, parseChapterHint, ourSideOf, resultRelativeToUs } from './grandroque.ts';
+import { bestMatch, topCandidates, parseChapterHint, ourSideOf, resultRelativeToUs, toGrandroqueName } from './grandroque.ts';
+
+assert.equal(toGrandroqueName('Orieux, Etienne'), 'ORIEUX Etienne');
+assert.equal(toGrandroqueName('Kham-Nguyen, Mathys'), 'KHAM-NGUYEN Mathys');
+assert.equal(toGrandroqueName('NoComma'), 'NOCOMMA', 'no comma at all -> just uppercase, best effort');
 
 const ourName = 'ORIEUX Etienne';
 

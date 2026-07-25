@@ -82,9 +82,6 @@ async function main() {
     rapidElo: ownPlayer.rapid,
     blitzElo: ownPlayer.blitz,
   };
-  // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
-  const ffeMatchName = ownPlayer.name.replace(',', '');
-
   const manifest = loadManifest();
   const studies = await listStudies(LICHESS_USERNAME);
 
@@ -100,7 +97,7 @@ async function main() {
   console.log(`Téléchargé : downloaded/${downloadedFilename}`);
   const downloadedGames = splitGames(readFileSync(`downloaded/${downloadedFilename}`, 'utf8'));
 
-  const { match, filename, games } = await matchRound(study, downloadedFilename, downloadedGames, ffeMatchName, ask);
+  const { match, filename, games } = await matchRound(study, downloadedFilename, downloadedGames, our.name, ask);
 
   if (match) {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;

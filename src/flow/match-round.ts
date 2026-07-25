@@ -8,6 +8,7 @@ import {
   topCandidates,
   parseChapterHint,
   resultRelativeToUs,
+  toGrandroqueName,
   type MatchHint,
 } from '../grandroque.ts';
 import type { Category } from '../cadence.ts';
@@ -82,12 +83,13 @@ async function askCadenceKind(
   }
 }
 
-async function askVracOrManuel(ask: (q: string) => Promise<string>): Promise<'vrac' | 'manuel'> {
+async function askMode(ask: (q: string) => Promise<string>): Promise<'ffe' | 'vrac' | 'manuel'> {
   while (true) {
     const answer = (await ask(
-      'Pas de lien FFE — [g] grandroque (interclubs/coupe de France), [m] manuel (parties non officielles) : ',
+      'Tournoi solo FFE [f], compétition par équipe [e] (interclubs/coupe de France), parties non officielles [m] : ',
     )).trim().toLowerCase();
-    if (answer.startsWith('g')) return 'vrac';
+    if (answer.startsWith('f')) return 'ffe';
+    if (answer.startsWith('e')) return 'vrac';
     if (answer.startsWith('m')) return 'manuel';
   }
 }
@@ -102,13 +104,13 @@ async function askVracOrManuel(ask: (q: string) => Promise<string>): Promise<'vr
 // à chaque partie matchée pour cette compétition dans CE run.
 async function runVracMode(
   games: string[],
-  ffeMatchName: string,
+  grandroqueName: string,
   studyName: string,
   ask: (q: string) => Promise<string>,
 ): Promise<MatchResult | null> {
-  const candidates = await fetchPlayerMatches(ffeMatchName);
+  const candidates = await fetchPlayerMatches(grandroqueName);
   if (candidates.length === 0) {
-    console.warn(`ALERTE: aucune partie grandroque trouvée pour "${ffeMatchName}".`);
+    console.warn(`ALERTE: aucune partie grandroque trouvée pour "${grandroqueName}".`);
     return null;
   }
 
@@ -119,10 +121,10 @@ async function runVracMode(
   for (const [i, g] of games.entries()) {
     const chapterName = getTag(g, 'ChapterName') ?? '';
     const hint: MatchHint = { ...parseChapterHint(chapterName), date: chapterDateHint(g) };
-    let matched = bestMatch(candidates, ffeMatchName, hint);
+    let matched = bestMatch(candidates, grandroqueName, hint);
 
     if (!matched) {
-      const options = topCandidates(candidates, ffeMatchName, hint);
+      const options = topCandidates(candidates, grandroqueName, hint);
       if (options.length === 0) {
         console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat grandroque, chapitre exclu.`);
         continue;
@@ -185,22 +187,25 @@ async function runVracMode(
   return { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind: 'standardElo', category: 'classique' };
 }
 
-// The FFE-link / mode-manuel / mode-vrac loop: resolve which rounds/opponents
-// apply to this download, retrying on a bad link or a games/rounds-count
-// mismatch, until either a usable match is built or the user backs all the
-// way out (blank link, declines mode manuel -> match: null).
+// The mode-select / FFE-link / mode-manuel / mode-vrac loop: resolve which
+// rounds/opponents apply to this download, retrying on a bad link or a
+// games/rounds-count mismatch, until a usable match is built.
 export async function matchRound(
   study: StudyRef,
   initialFilename: string,
   initialGames: string[],
-  ffeMatchName: string,
+  ourFideName: string,
   ask: (q: string) => Promise<string>,
 ): Promise<{ match: MatchResult | null; filename: string; games: string[] }> {
   let filename = initialFilename;
   let games = initialGames;
+  // FFE displays names as "SURNAME Firstname", no comma; grandroque wants
+  // the same shape but is case-sensitive server-side (see toGrandroqueName).
+  const ffeMatchName = ourFideName.replace(',', '');
+  const grandroqueName = toGrandroqueName(ourFideName);
 
   while (true) {
-    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel/vrac) : ');
+    const mode = await askMode(ask);
 
     let fiche: FicheTournoi;
     let ffeUrl = '';
@@ -209,17 +214,15 @@ export async function matchRound(
     let ratingKind: RatingKind = 'standardElo';
     let manualCategory: Category | null = null;
 
-    if (!ffeUrlAnswer.trim()) {
-      const mode = await askVracOrManuel(ask);
-      if (mode === 'vrac') {
-        const vracMatch = await runVracMode(games, ffeMatchName, study.name, ask);
-        if (!vracMatch) continue;
-        return { match: vracMatch, filename, games };
-      }
+    if (mode === 'vrac') {
+      const vracMatch = await runVracMode(games, grandroqueName, study.name, ask);
+      if (!vracMatch) continue;
+      return { match: vracMatch, filename, games };
+    }
 
-      // pas de deuxième confirmation ici — le "n" final à "Sauvegarder ?"
-      // couvre déjà le cas "en fait j'annule tout", pas besoin d'y ajouter
-      // une porte de sortie ici.
+    if (mode === 'manuel') {
+      // pas de confirmation supplémentaire ici — le "n" final à
+      // "Sauvegarder ?" couvre déjà le cas "en fait j'annule tout".
       ({ category: manualCategory, ratingKind } = await askCadenceKind(ask));
 
       fiche = {
@@ -248,6 +251,8 @@ export async function matchRound(
         rounds.push({ round: i + 1, color, result: null, opponentName, opponentElo });
       }
     } else {
+      const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi : ');
+      if (!ffeUrlAnswer.trim()) continue;
       const raw = ffeUrlAnswer.trim();
       ffeUrl = /^\d+$/.test(raw)
         ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`

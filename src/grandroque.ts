@@ -17,6 +17,15 @@ export interface PlayerMatch {
   black_team_name: string;
 }
 
+// grandroque's player_name search is case-sensitive server-side (confirmed
+// live: "Orieux Etienne" -> [], "ORIEUX Etienne" -> real results) and stores
+// names FFE-style, "SURNAME Firstname" — takes the FIDE "Surname, Firstname"
+// format and reshapes it.
+export function toGrandroqueName(fideName: string): string {
+  const [surname, firstname] = fideName.split(',').map(s => s.trim());
+  return firstname ? `${surname.toUpperCase()} ${firstname}` : fideName.toUpperCase();
+}
+
 export async function fetchPlayerMatches(playerName: string): Promise<PlayerMatch[]> {
   const res = await fetch(`${API}/competitions/player-matches?player_name=${encodeURIComponent(playerName)}`);
   if (!res.ok) return [];
