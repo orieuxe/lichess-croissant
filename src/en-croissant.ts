@@ -111,4 +111,16 @@ function ensureSchema(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS games_black_idx ON Games(BlackID);
     CREATE INDEX IF NOT EXISTS games_result_idx ON Games(Result);
   `);
+
+  // Bootstrap the Info table if empty (fresh DB).
+  const version = db.prepare("SELECT Value FROM Info WHERE Name = 'Version'").get() as { Value: string } | undefined;
+  if (!version) {
+    db.prepare("INSERT INTO Info (Name, Value) VALUES ('Version', '1.0.0')").run();
+    db.prepare("INSERT INTO Info (Name, Value) VALUES ('Title', 'Mes Parties (non classique)')").run();
+    db.prepare("INSERT INTO Info (Name, Value) VALUES ('Description', '')").run();
+    db.prepare("INSERT INTO Info (Name, Value) VALUES ('GameCount', '0')").run();
+    db.prepare("INSERT INTO Info (Name, Value) VALUES ('PlayerCount', '0')").run();
+    db.prepare("INSERT INTO Info (Name, Value) VALUES ('EventCount', '0')").run();
+    db.prepare("INSERT INTO Info (Name, Value) VALUES ('SiteCount', '0')").run();
+  }
 }
