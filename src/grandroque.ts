@@ -29,15 +29,6 @@ export interface OurSideMatch {
   opponentFideId: number | null;
 }
 
-export interface StoryEvent {
-  key: string;
-  type: 'tournament' | 'competition';
-  label: string;
-  sublabel: string;
-  games: number;
-  date: string;
-}
-
 // Resolves the profile slug from a FIDE id — avoids name-search ambiguity.
 export async function fetchPlayerSlug(fideId: string): Promise<string | null> {
   try {
@@ -65,26 +56,6 @@ export async function fetchProfileGames(slug: string): Promise<ProfileGame[]> {
     cursor = page.next_cursor;
   }
   return all;
-}
-
-// Tournament/competition summary, one entry per event the player has
-// participated in — used as a picker to narrow down which games to fetch.
-export async function fetchStoryEvents(slug: string): Promise<StoryEvent[]> {
-  try {
-    const res = await fetch(`${API}/profiles/${encodeURIComponent(slug)}/story-events`);
-    if (!res.ok) { return []; }
-    const data = await res.json();
-    return (data.events ?? []).map((e: { key: string; type: string; label: string; sublabel: string; games: number; date: string }) => ({
-      key: e.key,
-      type: e.type as 'tournament' | 'competition',
-      label: e.label,
-      sublabel: e.sublabel,
-      games: e.games,
-      date: e.date,
-    }));
-  } catch {
-    return [];
-  }
 }
 
 // Converts a FFE RoundResult (from the classic FFE scraper flow) into a
