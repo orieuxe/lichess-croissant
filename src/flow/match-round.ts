@@ -238,25 +238,21 @@ async function pickCompetitions(
   allGames: ProfileGame[],
   ask: (q: string) => Promise<string>,
 ): Promise<Set<string> | null> {
-  const groups = new Map<string, { count: number; firstDate: string; lastDate: string }>();
+  const groupKey = (g: ProfileGame) => g.competition_id ?? g.tournament_id ?? '';
+  const groups = new Map<string, { title: string; count: number; lastDate: string }>();
   for (const g of allGames) {
-    if (!g.date) continue;
-    const y = g.date.slice(0, 4);
-    const key = `${g.competition_title}|${y}`;
-    const existing = groups.get(key);
+    const id = groupKey(g);
+    if (!id) continue;
+    const existing = groups.get(id);
     if (existing) {
       existing.count++;
       if (g.date > existing.lastDate) existing.lastDate = g.date;
-      if (g.date < existing.firstDate) existing.firstDate = g.date;
     } else {
-      groups.set(key, { count: 1, firstDate: g.date, lastDate: g.date });
+      groups.set(id, { title: g.competition_title, count: 1, lastDate: g.date });
     }
   }
   const entries = [...groups.entries()]
-    .map(([key, info]) => {
-      const title = key.slice(0, key.lastIndexOf('|'));
-      return { key, title, count: info.count, lastDate: info.lastDate, label: title };
-    })
+    .map(([id, info]) => ({ id, ...info }))
     .sort((a, b) => b.lastDate.localeCompare(a.lastDate));
   const PAGE = 10;
   const keys = new Set<string>();
@@ -265,7 +261,7 @@ async function pickCompetitions(
     const slice = entries.slice(offset, offset + PAGE);
     console.log(`\nCompétitions (${offset + 1}-${Math.min(offset + PAGE, entries.length)}/${entries.length}) :`);
     slice.forEach((e, i) =>
-      console.log(`  ${i + 1}. ${e.label} — ${e.count} parties — ${e.lastDate.slice(0, 10)}`));
+      console.log(`  ${i + 1}. ${e.title} — ${e.count} parties — ${e.lastDate.slice(0, 10)}`));
     const hasMore = offset + PAGE < entries.length;
     const prompt = hasMore
       ? 'Numéro(s) (virgule, "+" = voir plus, vide = annuler) : '
@@ -275,7 +271,7 @@ async function pickCompetitions(
     if (!pick) return null;
     for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
       const entry = entries[offset + n];
-      if (entry) keys.add(entry.key);
+      if (entry) keys.add(entry.id);
     }
     return keys.size ? keys : null;
   }
@@ -344,7 +340,7 @@ export async function matchRound(
     const selectedKeys = await pickCompetitions(allGames, ask);
     if (!selectedKeys) continue;
 
-    const filtered = allGames.filter(g => g.date && selectedKeys.has(`${g.competition_title}|${g.date.slice(0, 4)}`));
+    const filtered = allGames.filter(g => selectedKeys.has(g.competition_id ?? g.tournament_id ?? ''));
     if (filtered.length === 0) {
       console.warn('Aucune partie trouvée pour les compétitions sélectionnées.');
       continue;
