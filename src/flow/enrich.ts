@@ -2,6 +2,10 @@ import { setTag, getTag, removeTag, resultFromFfe } from '../pgn.ts';
 import type { FicheTournoi, RoundResult } from '../ffe.ts';
 import type { ResolvedFideName, RatingKind } from '../fide.ts';
 
+function tagIf(game: string, tag: string, value: string | number | undefined | null): string {
+  return value != null && value !== '' && !getTag(game, tag) ? setTag(game, tag, String(value)) : game;
+}
+
 export interface EnrichParams {
   games: string[];
   includedIndices: number[];
@@ -72,30 +76,18 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
 
       // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
       g = setTag(g, oppSide, opponent.name);
-      if (opponent.title && !getTag(g, `${oppSide}Title`)) {
-        g = setTag(g, `${oppSide}Title`, opponent.title);
-      }
-      if (opponent.fideId && !getTag(g, `${oppSide}FideId`)) {
-        g = setTag(g, `${oppSide}FideId`, opponent.fideId);
-      }
+      g = tagIf(g, `${oppSide}Title`, opponent.title);
+      g = tagIf(g, `${oppSide}FideId`, opponent.fideId);
       const oppRatingElo = opponent[ratingKind];
       const oppElo = r.opponentElo?.replace(/\s*F$/, '') || (oppRatingElo ? String(oppRatingElo) : '');
-      if (oppElo && !getTag(g, `${oppSide}Elo`)) {
-        g = setTag(g, `${oppSide}Elo`, oppElo);
-      }
+      g = tagIf(g, `${oppSide}Elo`, oppElo);
 
       g = setTag(g, ourSide, our.name);
-      if (our.title && !getTag(g, `${ourSide}Title`)) {
-        g = setTag(g, `${ourSide}Title`, our.title);
-      }
-      if (our.fideId && !getTag(g, `${ourSide}FideId`)) {
-        g = setTag(g, `${ourSide}FideId`, our.fideId);
-      }
+      g = tagIf(g, `${ourSide}Title`, our.title);
+      g = tagIf(g, `${ourSide}FideId`, our.fideId);
       const ourRatingElo = our[ratingKind];
       const ownEloTag = ourEloValue || (ourRatingElo ? String(ourRatingElo) : '');
-      if (ownEloTag && !getTag(g, `${ourSide}Elo`)) {
-        g = setTag(g, `${ourSide}Elo`, ownEloTag);
-      }
+      g = tagIf(g, `${ourSide}Elo`, ownEloTag);
     }
 
     if (fiche.cadenceText) { g = setTag(g, 'TimeControl', fiche.cadenceText); }
