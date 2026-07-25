@@ -196,11 +196,21 @@ export function resultRelativeToUs(absoluteResult: string, ourSide: 'White' | 'B
 
 // Best-effort parse of a chapter title like "B vs Muthaiah AL 2442".
 export function parseChapterHint(title: string): { color: 'White' | 'Black' | null; opponentName: string | null; opponentElo: number | null } {
-  const m = title.match(/^([BN])\s+vs\.?\s*(.*?)\s*(\d{3,4})?$/i);
+  // accept "vs", "vs.", "bs" (common AZERTY typo), "contre"
+  const m = title.match(/^([BN])\s+(?:vs\.?|bs|contre)\s+(.+?)\s*(\d{3,4})?\s*$/i);
   if (!m) return { color: null, opponentName: null, opponentElo: null };
   return {
     color: m[1].toUpperCase() === 'B' ? 'White' : 'Black',
     opponentName: m[2]?.trim() || null,
     opponentElo: m[3] ? parseInt(m[3], 10) : null,
   };
+}
+
+// Fallback when the full convention doesn't match: strip a leading "B/N"
+// prefix and use whatever follows as the opponent name. Much weaker signal
+// (no color, no guarantee) but better than excluding the chapter entirely.
+export function extractOpponentFromTitle(title: string): string | null {
+  const m = title.match(/^[BN]\s+\S+\s+(.+?)\s*(\d{3,4})?\s*$/i);
+  if (!m) return null;
+  return m[1]?.trim() || null;
 }

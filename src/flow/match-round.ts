@@ -8,6 +8,7 @@ import {
   matchGame,
   rankedGames,
   parseChapterHint,
+  extractOpponentFromTitle,
   resultRelativeToUs,
   ourSideOf,
   type ProfileGame,
@@ -23,7 +24,7 @@ export interface ParsedChapterTitle {
 }
 
 export function parseManualChapterTitle(chapterName: string): ParsedChapterTitle | null {
-  const m = chapterName.match(/^(B|N)\s+vs\s+(.+?)(?:\s+(\d{3,4}))?\s*$/i);
+  const m = chapterName.match(/^(B|N)\s+(?:vs\.?|bs|contre)\s+(.+?)\s*(\d{3,4})?\s*$/i);
   if (!m) return null;
   return {
     color: m[1].toUpperCase() as 'B' | 'N',
@@ -171,7 +172,7 @@ async function nameBasedMatch(
   for (const [i, g] of games.entries()) {
     const chapterName = getTag(g, 'ChapterName') ?? '';
     const hint = parseChapterHint(chapterName);
-    const hintName = hint.opponentName ?? '';
+    const hintName = hint.opponentName ?? extractOpponentFromTitle(chapterName) ?? '';
     let pg: ProfileGame | null = hintName ? matchGame(hintName, filtered, ourName) : null;
 
     if (pg) {
