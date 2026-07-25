@@ -72,18 +72,30 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
 
       // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
       g = setTag(g, oppSide, opponent.name);
-      if (opponent.title && !getTag(g, `${oppSide}Title`)) { g = setTag(g, `${oppSide}Title`, opponent.title); }
-      if (opponent.fideId && !getTag(g, `${oppSide}FideId`)) { g = setTag(g, `${oppSide}FideId`, opponent.fideId); }
+      if (opponent.title && !getTag(g, `${oppSide}Title`)) {
+        g = setTag(g, `${oppSide}Title`, opponent.title);
+      }
+      if (opponent.fideId && !getTag(g, `${oppSide}FideId`)) {
+        g = setTag(g, `${oppSide}FideId`, opponent.fideId);
+      }
       const oppRatingElo = opponent[ratingKind];
       const oppElo = r.opponentElo?.replace(/\s*F$/, '') || (oppRatingElo ? String(oppRatingElo) : '');
-      if (oppElo && !getTag(g, `${oppSide}Elo`)) { g = setTag(g, `${oppSide}Elo`, oppElo); }
+      if (oppElo && !getTag(g, `${oppSide}Elo`)) {
+        g = setTag(g, `${oppSide}Elo`, oppElo);
+      }
 
       g = setTag(g, ourSide, our.name);
-      if (our.title && !getTag(g, `${ourSide}Title`)) { g = setTag(g, `${ourSide}Title`, our.title); }
-      if (our.fideId && !getTag(g, `${ourSide}FideId`)) { g = setTag(g, `${ourSide}FideId`, our.fideId); }
+      if (our.title && !getTag(g, `${ourSide}Title`)) {
+        g = setTag(g, `${ourSide}Title`, our.title);
+      }
+      if (our.fideId && !getTag(g, `${ourSide}FideId`)) {
+        g = setTag(g, `${ourSide}FideId`, our.fideId);
+      }
       const ourRatingElo = our[ratingKind];
       const ownEloTag = ourEloValue || (ourRatingElo ? String(ourRatingElo) : '');
-      if (ownEloTag && !getTag(g, `${ourSide}Elo`)) { g = setTag(g, `${ourSide}Elo`, ownEloTag); }
+      if (ownEloTag && !getTag(g, `${ourSide}Elo`)) {
+        g = setTag(g, `${ourSide}Elo`, ownEloTag);
+      }
     }
 
     if (fiche.cadenceText) { g = setTag(g, 'TimeControl', fiche.cadenceText); }
