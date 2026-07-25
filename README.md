@@ -28,7 +28,7 @@ tags corrigés directement sur les chapitres lichess.
    (dédupliqué par `Site`, un seul fichier vivant par catégorie, renommé à chaque
    run). Pas de merge si autre joueur.
 8. Pousse les tags corrigés sur les chapitres lichess (`POST /api/study/.../tags`)
-9. Commit git auto (données seulement), push github optionnel
+9. Sync les nouvelles parties vers la base en-croissant (sqlite)
 
 Cadence ≥ 60 min de base = classique, sinon rapide/blitz (fusionnés ensemble).
 En mode grandroque : la cadence vient directement de l'API (classical/rapid/blitz).
@@ -49,8 +49,10 @@ cp .env.example .env   # puis remplis les valeurs
 `.env` :
 
 ```
-LICHESS_TOKEN=...   # token lichess avec les scopes study:read, study:write
-FIDE_ID=...          # ton id FIDE (lichess.org/api/fide/player?q=Nom+Prénom pour le trouver)
+LICHESS_TOKEN=...     # token lichess avec les scopes study:read, study:write
+FIDE_ID=...            # ton id FIDE
+# optionnel : sync auto vers en-croissant
+ENCROISSANT_DB_DIR=... # chemin vers le dossier des DBs en-croissant
 ```
 
 ## Usage
@@ -71,6 +73,5 @@ npm run format # eslint --fix
 
 ## État du projet / roadmap
 
-Voir [`PLAN.md`](./PLAN.md) — ce qui est fait, les limitations connues, et ce qui
-reste. Les trois modes (FFE, grandroque, manuel) sont implémentés et testés.
-Prochaine étape : sync vers la base en-croissant (sqlite).
+Voir [`PLAN.md`](./PLAN.md) — ce qui est fait, les limitations connues, et la suite.
+Les trois modes (FFE, grandroque, manuel) + sync en-croissant sont implémentés et testés (13 fichiers de test).
