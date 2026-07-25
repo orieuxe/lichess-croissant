@@ -9,7 +9,8 @@ const ENCODER_PATH = './pgn-encode/target/release/pgn-encode';
 // bit-identical Moves bytes with en-croissant's own encoding.
 function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   try {
-    const out = execFileSync(ENCODER_PATH, { input: pgnGame, maxBuffer: 16 * 1024 * 1024 }).toString();
+    const normalized = pgnGame.replace(/\r\n/g, '\n');
+    const out = execFileSync(ENCODER_PATH, { input: normalized, maxBuffer: 16 * 1024 * 1024 }).toString();
     const lines = out.trim().split('\n');
     if (lines.length < 2) return { moves: new Uint8Array(0), plyCount: 0 };
     const ply = parseInt(lines[0].split(' ')[1], 10) || 0;
