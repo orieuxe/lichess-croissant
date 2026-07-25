@@ -1,6 +1,40 @@
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import { Chess } from 'chess.js';
 import { splitGames, getTag } from './pgn.ts';
+
+// Extracts the raw movetext from a PGN game string (everything between the
+// header and the result/*), then encodes it into en-croissant's binary
+// format: one byte per move, each byte being the index of that move in the
+// list of legal moves at that position (shakmaty-compatible).
+function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
+  const headerEnd = pgnGame.indexOf('\n\n');
+  if (headerEnd === -1) return { moves: new Uint8Array(0), plyCount: 0 };
+  const raw = pgnGame.slice(headerEnd + 2)
+    .replace(/\{[^}]*\}/g, '')
+    .replace(/\([^()]*\)/g, '')
+    .replace(/\d+\.\.\./g, '')
+    .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\s*$/g, '')
+    .trim();
+  if (!raw) return { moves: new Uint8Array(0), plyCount: 0 };
+
+  const chess = new Chess();
+  const bytes: number[] = [];
+  const tokens = raw.split(/\s+/);
+  for (const token of tokens) {
+    if (/^\d+\./.test(token)) continue; // move number prefix
+    try {
+      const legal = chess.moves({ verbose: true });
+      const move = legal.find(m => m.san === token);
+      if (!move) break;
+      bytes.push(legal.indexOf(move));
+      chess.move(token);
+    } catch {
+      break;
+    }
+  }
+  return { moves: new Uint8Array(bytes), plyCount: bytes.length };
+}
 
 // Syncs every game from a merged PGN file into the en-croissant sqlite DB.
 // Skips games whose Site URL already exists (idempotent — safe to call
@@ -40,7 +74,7 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
 
   const insertGame = db.prepare(`
     INSERT INTO Games (EventID, SiteID, Date, Round, WhiteID, WhiteElo, BlackID, BlackElo, Result, TimeControl, WhiteMaterial, BlackMaterial, ECO, PlyCount, Moves, PawnHome)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '', 0, X'', 0)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, '', ?, ?, 0)
   `);
 
   for (const g of pgn) {
@@ -65,6 +99,8 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
     const roundVal = /^\d+$/.test(roundTag) ? parseInt(roundTag, 10) : roundTag;
     const date = getTag(g, 'Date') ?? getTag(g, 'UTCDate')?.replace(/\./g, '-') ?? null;
 
+    const { moves, plyCount } = encodeMoves(g);
+
     insertGame.run(
       eventId,
       siteId,
@@ -76,6 +112,8 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
       blackElo ? parseInt(blackElo, 10) || null : 0,
       getTag(g, 'Result') || '*',
       getTag(g, 'TimeControl'),
+      plyCount,
+      moves,
     );
     inserted++;
   }

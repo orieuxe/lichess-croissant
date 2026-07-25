@@ -13,7 +13,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0",
+    "chess.js": "^1.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
