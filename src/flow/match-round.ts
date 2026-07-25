@@ -168,21 +168,24 @@ async function nameBasedMatch(
 ): Promise<{ rounds: RoundResult[]; includedIndices: number[]; games: string[] }> {
   const rounds: RoundResult[] = [];
   const includedIndices: number[] = [];
+  const usedIds = new Set<string>();
 
   for (const [i, g] of games.entries()) {
     const chapterName = getTag(g, 'ChapterName') ?? '';
     const hint = parseChapterHint(chapterName);
     const hintName = hint.opponentName ?? extractOpponentFromTitle(chapterName) ?? '';
-    let pg: ProfileGame | null = hintName ? matchGame(hintName, filtered, ourName) : null;
+    const available = filtered.filter(c => !usedIds.has(c.id));
+    let pg: ProfileGame | null = hintName ? matchGame(hintName, available, ourName) : null;
 
     if (pg) {
       const o = ourSideOf(pg, ourName);
       console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — auto : ${describeMatch(o)}`);
     } else {
-      pg = await manualPick(i, g, chapterName, hintName, filtered, ourName, ask);
+      pg = await manualPick(i, g, chapterName, hintName, filtered, usedIds, ourName, ask);
       if (!pg) continue;
     }
 
+    usedIds.add(pg.id);
     const o = ourSideOf(pg, ourName);
     const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
     if (o.opponentFideId) {
@@ -202,22 +205,22 @@ async function nameBasedMatch(
   return { rounds, includedIndices, games };
 }
 
-// Manual pick from the filtered pool — can be extended with FFE-fetched
-// games mixed in (passed as the same candidate list, via ffeRoundToProfileGame).
+// Manual pick from the filtered grandroque/FFE pool. When hintName is known,
+// shows only the games that match that opponent. When hintName is empty (title
+// couldn't be parsed at all), shows ALL remaining unmatched games as a last
+// resort — sorted by date desc, most recent first.
 async function manualPick(
   i: number,
   g: string,
   chapterName: string,
   hintName: string,
   candidates: ProfileGame[],
+  usedIds: Set<string>,
   ourName: string,
   ask: (q: string) => Promise<string>,
 ): Promise<ProfileGame | null> {
-  if (!hintName) {
-    console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — titre de chapitre pas parsable, chapitre exclu.`);
-    return null;
-  }
-  const options = rankedGames(hintName, candidates, ourName);
+  const available = candidates.filter(c => !usedIds.has(c.id));
+  const options = hintName ? rankedGames(hintName, available, ourName) : available.sort((a, b) => b.date.localeCompare(a.date));
   if (options.length === 0) {
     console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat, chapitre exclu.`);
     return null;
