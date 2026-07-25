@@ -1,62 +1,23 @@
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
-import { Chess } from 'chess.js';
 import { splitGames, getTag } from './pgn.ts';
 
-// chess.js and shakmaty order legal moves differently — en-croissant uses
-// shakmaty under the hood, so we replicate its move-list ordering here:
-// pieces by square index (A1..H8), then within each piece's moves by target
-// square descending (shakmaty generates single-push before double-push for
-// pawns, both by descending target square).
-function shakmatyMoves(chess: Chess) {
-  const allMoves = chess.moves({ verbose: true });
-  const turn = chess.turn();
-  const ordered: typeof allMoves = [];
-  for (let sq = 0; sq < 64; sq++) {
-    const alg = 'abcdefgh'[sq % 8] + (Math.floor(sq / 8) + 1);
-    const piece = chess.get(alg as any);
-    if (!piece || piece.color !== turn) continue;
-    const pieceMoves = allMoves.filter(m => m.from === alg);
-    if (!pieceMoves.length) continue;
-    pieceMoves.sort((a, b) => {
-      const aSq = 'abcdefgh'.indexOf(a.to[0]) + (parseInt(a.to[1]) - 1) * 8;
-      const bSq = 'abcdefgh'.indexOf(b.to[0]) + (parseInt(b.to[1]) - 1) * 8;
-      return bSq - aSq;
-    });
-    ordered.push(...pieceMoves);
-  }
-  return ordered;
-}
+const ENCODER_PATH = './pgn-encode/target/release/pgn-encode';
 
-// Encodes PGN movetext to en-croissant's binary format (one byte per move,
-// each byte = index in the legal-move list at that position).
+// Encodes a PGN game string via the Rust shakmaty helper, producing
+// bit-identical Moves bytes with en-croissant's own encoding.
 function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
-  const normalized = pgnGame.replace(/\r\n/g, '\n');
-  const headerEnd = normalized.indexOf('\n\n');
-  if (headerEnd === -1) return { moves: new Uint8Array(0), plyCount: 0 };
-  let raw = normalized.slice(headerEnd + 2)
-    .replace(/\{[^}]*\}/g, '')
-    .replace(/\d+\.\.\./g, '')
-    .replace(/[!?]+/g, '')
-    .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\s*$/g, '')
-    .trim();
-  let prev: string;
-  do { prev = raw; raw = raw.replace(/\([^()]*\)/g, ''); } while (raw !== prev);
-  if (!raw) return { moves: new Uint8Array(0), plyCount: 0 };
-
-  const chess = new Chess();
-  const bytes: number[] = [];
-  for (const token of raw.split(/\s+/)) {
-    if (!token || /^\d+\./.test(token) || token === '*') continue;
-    try {
-      const legal = shakmatyMoves(chess);
-      const move = legal.find(m => m.san === token);
-      if (!move) break;
-      bytes.push(legal.indexOf(move));
-      chess.move(token);
-    } catch { break; }
+  try {
+    const out = execFileSync(ENCODER_PATH, { input: pgnGame, maxBuffer: 16 * 1024 * 1024 }).toString();
+    const lines = out.trim().split('\n');
+    if (lines.length < 2) return { moves: new Uint8Array(0), plyCount: 0 };
+    const ply = parseInt(lines[0].split(' ')[1], 10) || 0;
+    const bytes = new Uint8Array(lines[1].split(/\s+/).map(Number));
+    return { moves: bytes, plyCount: ply };
+  } catch {
+    return { moves: new Uint8Array(0), plyCount: 0 };
   }
-  return { moves: new Uint8Array(bytes), plyCount: bytes.length };
 }
 
 export function syncToDb(pgnPath: string, dbPath: string): number {

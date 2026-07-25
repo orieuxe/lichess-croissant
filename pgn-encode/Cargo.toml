@@ -1,0 +1,12 @@
+[package]
+name = "pgn-encode"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "pgn-encode"
+path = "src/main.rs"
+
+[dependencies]
+shakmaty = "0.27.1"
+pgn-reader = "0.26.0"
