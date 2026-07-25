@@ -230,32 +230,36 @@ async function manualPick(
   return options[idx];
 }
 
-// Group profile games by competition_title, show full names with counts
-// (the story-events endpoint truncates labels), let the user pick.
+// Group profile games by competition_title + first year (so multi-season
+// competitions like "Interclubs" get separate entries for 2025 and 2026),
+// show full names with counts, let the user pick. Returns a set of compound
+// keys for filtering.
 async function pickCompetitions(
   allGames: ProfileGame[],
   ask: (q: string) => Promise<string>,
 ): Promise<Set<string> | null> {
   const groups = new Map<string, { count: number; firstDate: string; lastDate: string }>();
   for (const g of allGames) {
-    const existing = groups.get(g.competition_title);
+    if (!g.date) continue;
+    const y = g.date.slice(0, 4);
+    const key = `${g.competition_title}|${y}`;
+    const existing = groups.get(key);
     if (existing) {
       existing.count++;
       if (g.date > existing.lastDate) existing.lastDate = g.date;
       if (g.date < existing.firstDate) existing.firstDate = g.date;
     } else {
-      groups.set(g.competition_title, { count: 1, firstDate: g.date, lastDate: g.date });
+      groups.set(key, { count: 1, firstDate: g.date, lastDate: g.date });
     }
   }
   const entries = [...groups.entries()]
-    .map(([title, info]) => {
-      const [ys, ye] = [info.firstDate?.slice(0, 4), info.lastDate?.slice(0, 4)].filter(Boolean);
-      const season = ys ? (ys === ye ? ys : `${ys}-${ye}`) : '';
-      return { title, count: info.count, lastDate: info.lastDate, label: season ? `${title} (${season})` : title };
+    .map(([key, info]) => {
+      const title = key.slice(0, key.lastIndexOf('|'));
+      return { key, title, count: info.count, lastDate: info.lastDate, label: title };
     })
     .sort((a, b) => b.lastDate.localeCompare(a.lastDate));
   const PAGE = 10;
-  const titles = new Set<string>();
+  const keys = new Set<string>();
   let offset = 0;
   while (true) {
     const slice = entries.slice(offset, offset + PAGE);
@@ -271,9 +275,9 @@ async function pickCompetitions(
     if (!pick) return null;
     for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
       const entry = entries[offset + n];
-      if (entry) titles.add(entry.title);
+      if (entry) keys.add(entry.key);
     }
-    return titles.size ? titles : null;
+    return keys.size ? keys : null;
   }
 }
 
@@ -337,19 +341,18 @@ export async function matchRound(
       continue;
     }
 
-    const selectedTitles = await pickCompetitions(allGames, ask);
-    if (!selectedTitles) continue;
+    const selectedKeys = await pickCompetitions(allGames, ask);
+    if (!selectedKeys) continue;
 
-    const filtered = allGames.filter(g => selectedTitles.has(g.competition_title));
+    const filtered = allGames.filter(g => g.date && selectedKeys.has(`${g.competition_title}|${g.date.slice(0, 4)}`));
     if (filtered.length === 0) {
       console.warn('Aucune partie trouvée pour les compétitions sélectionnées.');
       continue;
     }
-    console.log(`${filtered.length} parties filtrées sur ${allGames.length} au total.`);
 
     let rounds: RoundResult[];
     let includedIndices: number[];
-    if (selectedTitles.size === 1) {
+    if (selectedKeys.size === 1) {
       ({ rounds, includedIndices } = positionalMatch(games, filtered, ourName));
     } else {
       ({ rounds, includedIndices, games } = await nameBasedMatch(games, filtered, ourName, ask));
