@@ -261,7 +261,7 @@ async function pickEvents(
   while (true) {
     const slice = events.slice(offset, offset + PAGE);
     console.log(`\nTournois/compétitions grandroque (${offset + 1}-${Math.min(offset + PAGE, events.length)}/${events.length}) :`);
-    slice.forEach((e, i) => console.log(`  ${i + 1}. [${e.type}] ${e.label} (${e.sublabel}) — ${e.games} parties — ${e.date.slice(0, 10)}`));
+    slice.forEach((e, i) => console.log(`  ${i + 1}. ${e.label} (${e.sublabel}) — ${e.games} parties — ${e.date.slice(0, 10)}`));
     const hasMore = offset + PAGE < events.length;
     const prompt = hasMore
       ? 'Numéro(s) (virgule pour plusieurs, "+" = voir plus, vide = annuler) : '
