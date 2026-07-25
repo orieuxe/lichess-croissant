@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint, groupCompetitions, filterGamesByKeys, positionalMatch, buildRoundFromMatch, describeMatch, resolveHintName } from './match-round.ts';
+import { parseRoundNumbers, parseExcludedIndices, chapterDateHint } from './match-round.ts';
+import { parseManualChapterTitle } from './manual-flow.ts';
+import { groupCompetitions, filterGamesByKeys, positionalMatch, buildRoundFromMatch, describeMatch, resolveHintName } from './grandroque-flow.ts';
 import { ourSideOf } from '../grandroque.ts';
 import type { ProfileGame } from '../grandroque.ts';
 
