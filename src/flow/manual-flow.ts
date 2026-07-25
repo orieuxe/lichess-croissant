@@ -12,7 +12,7 @@ export interface ParsedChapterTitle {
 // convention "B/N vs Nom, Prénom elo" tapée par le joueur lui-même
 export function parseManualChapterTitle(chapterName: string): ParsedChapterTitle | null {
   const m = chapterName.match(/^(B|N)\s+(?:vs\.?|bs|contre)\s+(.+?)\s*(\d{3,4})?\s*$/i);
-  if (!m) return null;
+  if (!m) { return null; }
   return {
     color: m[1].toUpperCase() as 'B' | 'N',
     opponentName: m[2].trim(),

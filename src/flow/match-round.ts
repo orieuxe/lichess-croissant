@@ -26,7 +26,7 @@ export interface CompetitionGroup {
 
 export function parseRoundNumbers(input: string): number[] {
   const trimmed = input.trim();
-  if (!/^[\d\s,]+$/.test(trimmed)) return [];
+  if (!/^[\d\s,]+$/.test(trimmed)) { return []; }
   return trimmed.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !Number.isNaN(n));
 }
 
@@ -38,7 +38,7 @@ export function parseExcludedIndices(input: string): Set<number> {
 
 export function chapterDateHint(game: string): Date | null {
   const raw = getTag(game, 'UTCDate') ?? getTag(game, 'Date');
-  if (!raw || raw.includes('?')) return null;
+  if (!raw || raw.includes('?')) { return null; }
   const d = new Date(raw.replace(/\./g, '-'));
   return Number.isNaN(d.getTime()) ? null : d;
 }
@@ -63,13 +63,13 @@ export async function matchRound(
       };
       return { match: { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices: games.map((_, i) => i), ratingKind, category }, filename: initialFilename, games };
     }
-    if (answer !== '' && answer !== 'o' && answer !== 'oui') continue;
+    if (answer !== '' && answer !== 'o' && answer !== 'oui') { continue; }
 
     const ffeFallback = (g: string[], a: (q: string) => Promise<string>) =>
       askFfeLink(g, ffeMatchName, a);
 
     const { match, games: updated } = await runGrandroqueFlow(games, ourFideId, ourName, study.name, ask, ffeFallback);
-    if (match) return { match, filename: initialFilename, games: updated };
+    if (match) { return { match, filename: initialFilename, games: updated }; }
     continue;
   }
 }

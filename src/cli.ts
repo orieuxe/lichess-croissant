@@ -45,12 +45,12 @@ async function askOpponentFideId(): Promise<ResolvedFideName> {
     const id = (await ask('ID FIDE de l\'adversaire (vide si inconnu) : ')).trim();
     if (id) {
       const resolved = await resolveFideById(id);
-      if (resolved) return resolved;
+      if (resolved) { return resolved; }
       console.warn(`ID FIDE ${id} introuvable, réessaie.`);
       continue;
     }
     const name = (await ask('Nom de l\'adversaire (obligatoire) : ')).trim();
-    if (name) return { name: normalizeUnmatchedName(name) };
+    if (name) { return { name: normalizeUnmatchedName(name) }; }
   }
 }
 
@@ -62,14 +62,14 @@ async function askResult(title: string): Promise<'+' | '=' | '-'> {
       `Résultat pour ${title} — [1] gagné, [0] perdu, [/] nul : `,
     );
     const choice = answer.trim();
-    if (choice === '1') return '+';
-    if (choice === '0') return '-';
-    if (choice === '/') return '=';
+    if (choice === '1') { return '+'; }
+    if (choice === '0') { return '-'; }
+    if (choice === '/') { return '='; }
   }
 }
 
 async function main() {
-  if (!FIDE_ID) throw new Error('FIDE_ID not set (check .env)');
+  if (!FIDE_ID) { throw new Error('FIDE_ID not set (check .env)'); }
 
   const fideIdAnswer = await ask(
     `ID FIDE du joueur (vide = toi, ${FIDE_ID}) : `,
@@ -78,7 +78,7 @@ async function main() {
   const isOtherPlayer = playerFideId !== FIDE_ID;
 
   const ownPlayer = await getFidePlayer(playerFideId);
-  if (!ownPlayer) throw new Error(`FIDE id ${playerFideId} not found`);
+  if (!ownPlayer) { throw new Error(`FIDE id ${playerFideId} not found`); }
   const our: ResolvedFideName = {
     name: ownPlayer.name,
     title: ownPlayer.title,
@@ -134,7 +134,7 @@ async function main() {
     // Applique les renommages event par tournoi (mode grandroque multi-événements)
     if (eventByRound.size > 0) {
       for (const r of rounds) {
-        if (r.event) r.event = eventByRound.get(r.event!) ?? r.event;
+        if (r.event) { r.event = eventByRound.get(r.event!) ?? r.event; }
       }
     }
 
@@ -181,7 +181,7 @@ async function main() {
         const dbPath = `${enCroissantDir}/${dbName}`;
         try {
           const count = syncToDb(merged, dbPath);
-          if (count > 0) console.log(`${count} partie(s) ajoutée(s) à ${dbName}.`);
+          if (count > 0) { console.log(`${count} partie(s) ajoutée(s) à ${dbName}.`); }
         } catch (err) {
           console.warn(`Sync en-croissant échouée: ${(err as Error).message}`);
         }

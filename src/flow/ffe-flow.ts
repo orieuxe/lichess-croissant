@@ -8,7 +8,7 @@ export async function askFfeLink(
   ask: (q: string) => Promise<string>,
 ): Promise<MatchResult | null> {
   const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi : ');
-  if (!ffeUrlAnswer.trim()) return null;
+  if (!ffeUrlAnswer.trim()) { return null; }
   const raw = ffeUrlAnswer.trim();
   const ffeUrl = /^\d+$/.test(raw)
     ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`

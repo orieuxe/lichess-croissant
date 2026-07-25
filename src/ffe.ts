@@ -39,10 +39,10 @@ export async function fetchFiche(url: string): Promise<FicheTournoi> {
   const resultsLinks: Record<string, string> = {};
   $('a[href*="Resultats.aspx"]').each((_, a) => {
     const href = $(a).attr('href');
-    if (!href) return;
+    if (!href) { return; }
     const absolute = new URL(href.replace(/&amp;/g, '&'), url).href;
     const action = new URL(absolute).searchParams.get('Action');
-    if (action) resultsLinks[action] = absolute;
+    if (action) { resultsLinks[action] = absolute; }
   });
 
   return { title, startDate, endDate, numRounds, cadenceText, resultsLinks };
@@ -74,7 +74,7 @@ export async function fetchRounds(
       .toArray()
       .map(td => $(td).text().replace(/\u00A0/g, ' ').trim());
     const nameEl = $(tr).find('> td > div.papi_joueur_box > b').first();
-    if (!nameEl.length || cells.length < 7 + numRounds) return;
+    if (!nameEl.length || cells.length < 7 + numRounds) { return; }
 
     const rank = cells[0];
     const name = nameEl.text().trim();
@@ -141,11 +141,11 @@ function normalizeLooseName(name: string): string {
 // — same meaning as "½ - ½" / "1/2 - 1/2", just a different glyph choice.
 export function parseClosedResult(raw: string, wasWhite: boolean): '+' | '=' | '-' | null {
   const m = raw.match(/^(X|\d|½|1\/2)\s*-\s*(X|\d|½|1\/2)$/);
-  if (!m) return null;
+  if (!m) { return null; }
   const isDraw = (s: string) => s === '½' || s === '1/2' || s === 'X';
   const [whiteScore, blackScore] = [m[1], m[2]];
   const ourScore = wasWhite ? whiteScore : blackScore;
-  if (isDraw(ourScore)) return '=';
+  if (isDraw(ourScore)) { return '='; }
   const oppScore = wasWhite ? blackScore : whiteScore;
   return ourScore > oppScore ? '+' : '-';
 }
@@ -164,10 +164,10 @@ export async function fetchClosedRounds(
   const eloByName = new Map<string, string>();
   $berger('tr.papi_liste_c').each((_, tr) => {
     const cells = $berger(tr).children('td').toArray();
-    if (cells.length < 4) return;
+    if (cells.length < 4) { return; }
     const name = $berger(cells[1]).text().trim();
     const elo = $berger(cells[3]).text().replace(/\u00A0/g, ' ').trim();
-    if (name && elo) eloByName.set(normalizeLooseName(name), elo);
+    if (name && elo) { eloByName.set(normalizeLooseName(name), elo); }
   });
 
   const pairingHtml = await (await fetch(pairingUrl, { headers: UA })).text();
@@ -180,18 +180,18 @@ export async function fetchClosedRounds(
     const el = $pairing(tr);
     if (el.hasClass('papi_liste_t')) {
       const m = el.text().match(/RONDE\s+(\d+)/i);
-      if (m) currentRound = parseInt(m[1], 10);
+      if (m) { currentRound = parseInt(m[1], 10); }
       return;
     }
     const cells = el.children('td').toArray();
-    if (cells.length !== 3 || !currentRound) return;
+    if (cells.length !== 3 || !currentRound) { return; }
     const whiteName = $pairing(cells[0]).text().trim();
     const resultText = $pairing(cells[1]).text().replace(/\u00A0/g, ' ').trim();
     const blackName = $pairing(cells[2]).text().trim();
 
     const isWhite = normalizeLooseName(whiteName) === target;
     const isBlack = normalizeLooseName(blackName) === target;
-    if (!isWhite && !isBlack) return;
+    if (!isWhite && !isBlack) { return; }
 
     const opponentName = stripTitle(isWhite ? blackName : whiteName).trim();
     rounds.push({

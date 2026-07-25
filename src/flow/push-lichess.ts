@@ -32,9 +32,9 @@ export async function pushChapters(
     const tags: Record<string, string> = {};
     for (const tag of PUSHABLE_TAGS) {
       const value = getTag(g, tag);
-      if (value) tags[tag] = value;
+      if (value) { tags[tag] = value; }
     }
-    if (ffeUrl) tags.Event = ffeUrl;
+    if (ffeUrl) { tags.Event = ffeUrl; }
 
     const title = desiredChapterTitle(g, ourName);
     try {

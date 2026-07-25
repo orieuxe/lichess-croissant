@@ -10,7 +10,7 @@ import { splitGames, getTag } from './pgn.ts';
 function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   const normalized = pgnGame.replace(/\r\n/g, '\n');
   const headerEnd = normalized.indexOf('\n\n');
-  if (headerEnd === -1) return { moves: new Uint8Array(0), plyCount: 0 };
+  if (headerEnd === -1) { return { moves: new Uint8Array(0), plyCount: 0 }; }
   let raw = normalized.slice(headerEnd + 2)
     .replace(/\{[^}]*\}/g, '')
     .replace(/\d+\.\.\./g, '')
@@ -22,17 +22,17 @@ function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
     prev = raw;
     raw = raw.replace(/\([^()]*\)/g, '');
   } while (raw !== prev);
-  if (!raw) return { moves: new Uint8Array(0), plyCount: 0 };
+  if (!raw) { return { moves: new Uint8Array(0), plyCount: 0 }; }
 
   const chess = new Chess();
   const bytes: number[] = [];
   const tokens = raw.split(/\s+/);
   for (const token of tokens) {
-    if (/^\d+\./.test(token)) continue; // move number prefix
+    if (/^\d+\./.test(token)) { continue; } // move number prefix
     try {
       const legal = chess.moves({ verbose: true });
       const move = legal.find(m => m.san === token);
-      if (!move) break;
+      if (!move) { break; }
       bytes.push(legal.indexOf(move));
       chess.move(token);
     } catch {
@@ -56,7 +56,7 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
   const selectSite = db.prepare('SELECT ID FROM Sites WHERE Name = ?');
   const resolveSite = (name: string): number | bigint => {
     const existing = selectSite.get(name) as { ID: number | bigint } | undefined;
-    if (existing) return existing.ID;
+    if (existing) { return existing.ID; }
     return insertSite.run(name).lastInsertRowid as number;
   };
 
@@ -64,7 +64,7 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
   const selectEvent = db.prepare('SELECT ID FROM Events WHERE Name = ?');
   const getEventId = (name: string): number | bigint => {
     const existing = selectEvent.get(name) as { ID: number | bigint } | undefined;
-    if (existing) return existing.ID;
+    if (existing) { return existing.ID; }
     const r = insertEvent.run(name);
     return BigInt(r.lastInsertRowid as number);
   };
@@ -73,7 +73,7 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
   const selectPlayer = db.prepare('SELECT ID FROM Players WHERE Name = ?');
   const getPlayerId = (name: string, elo: string | null): number | bigint => {
     const existing = selectPlayer.get(name) as { ID: number | bigint } | undefined;
-    if (existing) return existing.ID;
+    if (existing) { return existing.ID; }
     const r = insertPlayer.run(name, elo ? parseInt(elo, 10) || null : null);
     return BigInt(r.lastInsertRowid as number);
   };
@@ -85,9 +85,9 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
 
   for (const g of pgn) {
     const site = getTag(g, 'Site') ?? getTag(g, 'ChapterURL');
-    if (!site) continue;
+    if (!site) { continue; }
     const siteExists = selectSite.get(site);
-    if (siteExists) continue;
+    if (siteExists) { continue; }
 
     const eventName = getTag(g, 'Event') ?? '?';
     const eventId = getEventId(eventName);
@@ -158,14 +158,14 @@ function ensureSchema(db: DatabaseSync): void {
   `);
 
   // Bootstrap the Info table if empty (fresh DB).
-  const version = db.prepare("SELECT Value FROM Info WHERE Name = 'Version'").get() as { Value: string } | undefined;
+  const version = db.prepare('SELECT Value FROM Info WHERE Name = \'Version\'').get() as { Value: string } | undefined;
   if (!version) {
-    db.prepare("INSERT INTO Info (Name, Value) VALUES ('Version', '1.0.0')").run();
-    db.prepare("INSERT INTO Info (Name, Value) VALUES ('Title', 'Mes Parties (non classique)')").run();
-    db.prepare("INSERT INTO Info (Name, Value) VALUES ('Description', '')").run();
-    db.prepare("INSERT INTO Info (Name, Value) VALUES ('GameCount', '0')").run();
-    db.prepare("INSERT INTO Info (Name, Value) VALUES ('PlayerCount', '0')").run();
-    db.prepare("INSERT INTO Info (Name, Value) VALUES ('EventCount', '0')").run();
-    db.prepare("INSERT INTO Info (Name, Value) VALUES ('SiteCount', '0')").run();
+    db.prepare('INSERT INTO Info (Name, Value) VALUES (\'Version\', \'1.0.0\')').run();
+    db.prepare('INSERT INTO Info (Name, Value) VALUES (\'Title\', \'Mes Parties (non classique)\')').run();
+    db.prepare('INSERT INTO Info (Name, Value) VALUES (\'Description\', \'\')').run();
+    db.prepare('INSERT INTO Info (Name, Value) VALUES (\'GameCount\', \'0\')').run();
+    db.prepare('INSERT INTO Info (Name, Value) VALUES (\'PlayerCount\', \'0\')').run();
+    db.prepare('INSERT INTO Info (Name, Value) VALUES (\'EventCount\', \'0\')').run();
+    db.prepare('INSERT INTO Info (Name, Value) VALUES (\'SiteCount\', \'0\')').run();
   }
 }

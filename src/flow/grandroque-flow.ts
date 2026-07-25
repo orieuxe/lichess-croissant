@@ -91,7 +91,7 @@ async function nameBasedMatch(
       console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — auto : ${describeMatch(o)}`);
     } else {
       pg = await manualPick(i, g, chapterName, hintName, filtered, usedIds, ourName, ask);
-      if (!pg) continue;
+      if (!pg) { continue; }
     }
 
     usedIds.add(pg.id);
@@ -143,11 +143,11 @@ export function groupCompetitions(allGames: ProfileGame[]): { id: string; title:
   const groups = new Map<string, { title: string; count: number; lastDate: string }>();
   for (const g of allGames) {
     const id = g.competition_id ?? g.tournament_id ?? '';
-    if (!id) continue;
+    if (!id) { continue; }
     const existing = groups.get(id);
     if (existing) {
       existing.count++;
-      if (g.date && g.date > (existing.lastDate || '')) existing.lastDate = g.date;
+      if (g.date && g.date > (existing.lastDate || '')) { existing.lastDate = g.date; }
     } else {
       groups.set(id, { title: g.competition_title, count: 1, lastDate: g.date || '' });
     }
@@ -182,10 +182,10 @@ async function pickCompetitions(
       offset += PAGE;
       continue;
     }
-    if (!pick) return null;
+    if (!pick) { return null; }
     for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
       const entry = groups[offset + n];
-      if (entry) keys.add(entry.id);
+      if (entry) { keys.add(entry.id); }
     }
     return keys.size ? keys : null;
   }
@@ -226,7 +226,7 @@ export async function runGrandroqueFlow(
 
   const competitionGroups = groupCompetitions(allGames);
   const selectedKeys = await pickCompetitions(competitionGroups, ask);
-  if (!selectedKeys) return { match: null, games };
+  if (!selectedKeys) { return { match: null, games }; }
 
   const filtered = filterGamesByKeys(allGames, selectedKeys);
   if (filtered.length === 0) {

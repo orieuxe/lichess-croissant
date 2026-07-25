@@ -12,7 +12,7 @@ export interface StudyRef {
 
 function authHeaders(): Record<string, string> {
   const token = process.env.LICHESS_TOKEN;
-  if (!token) throw new Error('LICHESS_TOKEN not set (check .env)');
+  if (!token) { throw new Error('LICHESS_TOKEN not set (check .env)'); }
   return { Authorization: `Bearer ${token}` };
 }
 
@@ -20,7 +20,7 @@ export async function listStudies(username: string): Promise<StudyRef[]> {
   const res = await fetch(`${API}/study/by/${username}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error(`lichess list studies failed: ${res.status}`);
+  if (!res.ok) { throw new Error(`lichess list studies failed: ${res.status}`); }
   const text = await res.text();
   return text
     .trim()
@@ -34,7 +34,7 @@ export async function downloadStudy(studyId: string): Promise<string> {
   const res = await fetch(`${API}/study/${studyId}.pgn`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error(`lichess download study failed: ${res.status}`);
+  if (!res.ok) { throw new Error(`lichess download study failed: ${res.status}`); }
   const disposition = res.headers.get('content-disposition') ?? '';
   const match = disposition.match(/filename=(.+)$/);
   const filename = match ? match[1].trim() : `${studyId}.pgn`;
@@ -93,10 +93,10 @@ export function saveManifest(manifest: Record<string, string>): void {
 function bootstrapManifest(): Record<string, string> {
   const manifest: Record<string, string> = {};
   for (const filename of readdirSync(DOWNLOADED_DIR)) {
-    if (!filename.endsWith('.pgn')) continue;
+    if (!filename.endsWith('.pgn')) { continue; }
     const pgn = readFileSync(`${DOWNLOADED_DIR}/${filename}`, 'utf8');
     const studyId = extractStudyId(pgn);
-    if (studyId) manifest[studyId] = filename;
+    if (studyId) { manifest[studyId] = filename; }
   }
   saveManifest(manifest);
   return manifest;
@@ -112,12 +112,12 @@ export function studiesNotDownloaded(
 }
 
 export function loadIgnored(): string[] {
-  if (!existsSync(IGNORED_PATH)) return [];
+  if (!existsSync(IGNORED_PATH)) { return []; }
   return JSON.parse(readFileSync(IGNORED_PATH, 'utf8'));
 }
 
 export function ignoreStudy(id: string): void {
   const ignored = loadIgnored();
-  if (!ignored.includes(id)) ignored.push(id);
+  if (!ignored.includes(id)) { ignored.push(id); }
   writeFileSync(IGNORED_PATH, JSON.stringify(ignored, null, 2) + '\n');
 }

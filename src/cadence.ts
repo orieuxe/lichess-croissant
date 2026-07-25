@@ -5,7 +5,7 @@ const CADENCE_MAP_PATH = 'cadence-map.json';
 export type Category = 'classique' | 'non-classique';
 
 export function loadCadenceMap(): Record<string, Category> {
-  if (!existsSync(CADENCE_MAP_PATH)) return {};
+  if (!existsSync(CADENCE_MAP_PATH)) { return {}; }
   return JSON.parse(readFileSync(CADENCE_MAP_PATH, 'utf8'));
 }
 
@@ -18,9 +18,8 @@ export function saveCadenceMap(map: Record<string, Category>): void {
 // a classique vs non-classique cut at 60 min.
 export function parseBaseMinutes(cadenceText: string): number | null {
   const m = cadenceText.match(/(\d+)\s*h\s*(\d+)?|(\d+)\s*(?:'|mn|min)/i);
-  if (!m) return null;
-  if (m[1] !== undefined)
-    return parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0);
+  if (!m) { return null; }
+  if (m[1] !== undefined) { return parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0); }
   return parseInt(m[3], 10);
 }
 
@@ -29,11 +28,10 @@ export async function classifyCadence(
   askCategory: (cadenceText: string) => Promise<Category>,
 ): Promise<Category> {
   const map = loadCadenceMap();
-  if (cadenceText in map) return map[cadenceText];
+  if (cadenceText in map) { return map[cadenceText]; }
 
   const baseMinutes = parseBaseMinutes(cadenceText);
-  if (baseMinutes !== null)
-    return baseMinutes >= 60 ? 'classique' : 'non-classique';
+  if (baseMinutes !== null) { return baseMinutes >= 60 ? 'classique' : 'non-classique'; }
 
   const category = await askCategory(cadenceText);
   map[cadenceText] = category;

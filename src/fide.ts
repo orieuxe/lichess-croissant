@@ -21,7 +21,7 @@ export type RatingKind = 'standardElo' | 'rapidElo' | 'blitzElo';
 
 export async function searchFidePlayers(query: string): Promise<FideCandidate[]> {
   const res = await fetch(`https://lichess.org/api/fide/player?q=${encodeURIComponent(query)}`);
-  if (!res.ok) return [];
+  if (!res.ok) { return []; }
   return res.json();
 }
 
@@ -48,14 +48,14 @@ export function matchFideName(ffeName: string, candidates: FideCandidate[]): Fid
 
 export async function getFidePlayer(id: string): Promise<FideCandidate | null> {
   const res = await fetch(`https://lichess.org/api/fide/player/${encodeURIComponent(id)}`);
-  if (!res.ok) return null;
+  if (!res.ok) { return null; }
   return res.json();
 }
 
 export async function resolveFideById(id: string): Promise<ResolvedFideName | null> {
   try {
     const player = await getFidePlayer(id);
-    if (!player) return null;
+    if (!player) { return null; }
     return {
       name: player.name,
       title: player.title,
@@ -85,7 +85,7 @@ export function normalizeUnmatchedName(raw: string): string {
     return `${titleCase(surname.trim())}, ${titleCase(rest.join(',').trim())}`;
   }
   const tokens = trimmed.split(/\s+/).filter(Boolean);
-  if (tokens.length < 2) return trimmed;
+  if (tokens.length < 2) { return trimmed; }
   const isUpper = (t: string) => t === t.toUpperCase() && t !== t.toLowerCase();
   const upperIdx = tokens.findIndex(isUpper);
   const surnameIdx = upperIdx !== -1 ? upperIdx : tokens.length - 1;
@@ -118,7 +118,7 @@ export async function resolveFideName(
   }
 
   const id = (await askFideId(ffeName)).trim();
-  if (!id) return { name: normalizeUnmatchedName(ffeName) };
+  if (!id) { return { name: normalizeUnmatchedName(ffeName) }; }
 
   return (await resolveFideById(id)) ?? { name: normalizeUnmatchedName(ffeName) };
 }

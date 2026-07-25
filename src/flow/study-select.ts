@@ -17,12 +17,12 @@ export async function pickStudy(
     const choice = await ask(
       '\nNuméro à télécharger, "i<numéro>" pour ignorer définitivement (vide = quitter) : ',
     );
-    if (!choice.trim()) return undefined;
+    if (!choice.trim()) { return undefined; }
 
     const ignoreMatch = choice.trim().match(/^i(\d+)$/i);
     if (ignoreMatch) {
       const toIgnore = suggestions[parseInt(ignoreMatch[1], 10) - 1];
-      if (!toIgnore) throw new Error('choix invalide');
+      if (!toIgnore) { throw new Error('choix invalide'); }
       ignoreStudy(toIgnore.id);
       ignored.push(toIgnore.id);
       console.log(`Ignorée : ${toIgnore.name}`);
@@ -30,7 +30,7 @@ export async function pickStudy(
     }
 
     const study = suggestions[parseInt(choice, 10) - 1];
-    if (!study) throw new Error('choix invalide');
+    if (!study) { throw new Error('choix invalide'); }
     return study;
   }
 }

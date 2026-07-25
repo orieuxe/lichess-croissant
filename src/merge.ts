@@ -29,13 +29,13 @@ export function mergeCategory(category: Category, newGames: string[]): string {
     : [];
 
   const seen = new Map<string, string>();
-  for (const g of [...existingGames, ...newGames]) seen.set(gameKey(g), g);
+  for (const g of [...existingGames, ...newGames]) { seen.set(gameKey(g), g); }
   const allGames = [...seen.values()];
 
   const date = lastGameDate(allGames);
   const newFile = `merged_${category}_${date}.pgn`;
 
   writeFileSync(newFile, allGames.join('\n\n\n') + '\n');
-  if (existingFile && existingFile !== newFile) unlinkSync(existingFile);
+  if (existingFile && existingFile !== newFile) { unlinkSync(existingFile); }
   return newFile;
 }

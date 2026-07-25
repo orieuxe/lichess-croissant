@@ -13,7 +13,7 @@ export function getTag(game: string, tag: string): string | null {
 export function setTag(game: string, tag: string, value: string): string {
   const re = new RegExp(`^\\[${tag} ".*"\\]$`, 'm');
   const line = `[${tag} "${value}"]`;
-  if (re.test(game)) return game.replace(re, line);
+  if (re.test(game)) { return game.replace(re, line); }
   const headerEnd = game.indexOf('\n\n');
   const header = headerEnd === -1 ? game : game.slice(0, headerEnd);
   const rest = headerEnd === -1 ? '' : game.slice(headerEnd);
@@ -29,7 +29,7 @@ export function resultFromFfe(
   ffeResult: '+' | '=' | '-',
   ourSide: 'White' | 'Black',
 ): '1-0' | '0-1' | '1/2-1/2' {
-  if (ffeResult === '=') return '1/2-1/2';
+  if (ffeResult === '=') { return '1/2-1/2'; }
   const weWon = ffeResult === '+';
   return weWon === (ourSide === 'White') ? '1-0' : '0-1';
 }

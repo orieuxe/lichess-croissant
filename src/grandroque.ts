@@ -42,7 +42,7 @@ export interface StoryEvent {
 export async function fetchPlayerSlug(fideId: string): Promise<string | null> {
   try {
     const res = await fetch(`${API}/players/fide/${encodeURIComponent(fideId)}`);
-    if (!res.ok) return null;
+    if (!res.ok) { return null; }
     const data = await res.json();
     return data.slug ?? null;
   } catch {
@@ -56,12 +56,12 @@ export async function fetchProfileGames(slug: string): Promise<ProfileGame[]> {
   let cursor: string | undefined;
   while (true) {
     const params = new URLSearchParams({ limit: '100' });
-    if (cursor) params.set('cursor', cursor);
+    if (cursor) { params.set('cursor', cursor); }
     const res = await fetch(`${API}/profiles/${encodeURIComponent(slug)}/games?${params}`);
-    if (!res.ok) break;
+    if (!res.ok) { break; }
     const page = await res.json();
     all.push(...(page.items ?? []));
-    if (!page.has_more || !page.next_cursor) break;
+    if (!page.has_more || !page.next_cursor) { break; }
     cursor = page.next_cursor;
   }
   return all;
@@ -72,7 +72,7 @@ export async function fetchProfileGames(slug: string): Promise<ProfileGame[]> {
 export async function fetchStoryEvents(slug: string): Promise<StoryEvent[]> {
   try {
     const res = await fetch(`${API}/profiles/${encodeURIComponent(slug)}/story-events`);
-    if (!res.ok) return [];
+    if (!res.ok) { return []; }
     const data = await res.json();
     return (data.events ?? []).map((e: { key: string; type: string; label: string; sublabel: string; games: number; date: string }) => ({
       key: e.key,
@@ -135,7 +135,7 @@ function nameOverlapScore(a: string, b: string): number {
   const ta = new Set(normalizeName(a).split(' '));
   const tb = new Set(normalizeName(b).split(' '));
   let common = 0;
-  for (const t of ta) if (tb.has(t)) common++;
+  for (const t of ta) { if (tb.has(t)) { common++; } }
   return common;
 }
 
@@ -146,8 +146,8 @@ export function matchGame(hintName: string, candidates: ProfileGame[], ourName: 
   const scored = candidates
     .map(g => ({ g, score: nameOverlapScore(hintName, opponentNameOf(g, ourName)) }))
     .sort((a, b) => b.score - a.score);
-  if (scored.length === 0 || scored[0].score <= 0) return null;
-  if (scored.length > 1 && scored[0].score === scored[1].score) return null;
+  if (scored.length === 0 || scored[0].score <= 0) { return null; }
+  if (scored.length > 1 && scored[0].score === scored[1].score) { return null; }
   return scored[0].g;
 }
 
@@ -188,9 +188,9 @@ export function ourSideOf(pg: ProfileGame, ourName: string): OurSideMatch {
 // PGN-style absolute result ("1-0"/"0-1"/"1/2-1/2") -> relative to us, same
 // tri-state convention as the FFE flow ('+'/'='/'-').
 export function resultRelativeToUs(absoluteResult: string, ourSide: 'White' | 'Black'): '+' | '=' | '-' | null {
-  if (absoluteResult === '1/2-1/2') return '=';
-  if (absoluteResult === '1-0') return ourSide === 'White' ? '+' : '-';
-  if (absoluteResult === '0-1') return ourSide === 'White' ? '-' : '+';
+  if (absoluteResult === '1/2-1/2') { return '='; }
+  if (absoluteResult === '1-0') { return ourSide === 'White' ? '+' : '-'; }
+  if (absoluteResult === '0-1') { return ourSide === 'White' ? '-' : '+'; }
   return null;
 }
 
@@ -198,7 +198,7 @@ export function resultRelativeToUs(absoluteResult: string, ourSide: 'White' | 'B
 export function parseChapterHint(title: string): { color: 'White' | 'Black' | null; opponentName: string | null; opponentElo: number | null } {
   // accept "vs", "vs.", "bs" (common AZERTY typo), "contre"
   const m = title.match(/^([BN])\s+(?:vs\.?|bs|contre)\s+(.+?)\s*(\d{3,4})?\s*$/i);
-  if (!m) return { color: null, opponentName: null, opponentElo: null };
+  if (!m) { return { color: null, opponentName: null, opponentElo: null }; }
   return {
     color: m[1].toUpperCase() === 'B' ? 'White' : 'Black',
     opponentName: m[2]?.trim() || null,
@@ -211,6 +211,6 @@ export function parseChapterHint(title: string): { color: 'White' | 'Black' | nu
 // (no color, no guarantee) but better than excluding the chapter entirely.
 export function extractOpponentFromTitle(title: string): string | null {
   const m = title.match(/^[BN]\s+\S+\s+(.+?)\s*(\d{3,4})?\s*$/i);
-  if (!m) return null;
+  if (!m) { return null; }
   return m[1]?.trim() || null;
 }

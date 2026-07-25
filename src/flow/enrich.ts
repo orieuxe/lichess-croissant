@@ -37,7 +37,7 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
     let g = result[gameIdx];
     g = setTag(g, 'Round', String(r.round));
     g = setTag(g, 'Event', r.event ?? eventValue);
-    if (ffeUrl) g = setTag(g, 'EventURL', ffeUrl);
+    if (ffeUrl) { g = setTag(g, 'EventURL', ffeUrl); }
     g = removeTag(g, 'UTCDate');
     g = removeTag(g, 'UTCTime');
     g = removeTag(g, 'ChapterName');
@@ -49,7 +49,7 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
       // résoudre l'adversaire d'abord — le prompt résultat en a besoin
       let opponent: ResolvedFideName | null = null;
       const existingOppFideId = getTag(g, `${oppSide}FideId`);
-      if (existingOppFideId) opponent = await cb.resolveFideById(existingOppFideId);
+      if (existingOppFideId) { opponent = await cb.resolveFideById(existingOppFideId); }
       if (!opponent) {
         if (r.opponentName) {
           if (!opponentNameCache.has(r.opponentName)) {
@@ -64,7 +64,7 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
       const currentResult = getTag(g, 'Result');
       if (r.result) {
         const ffeResult = resultFromFfe(r.result, ourSide);
-        if (!currentResult || currentResult === '*') g = setTag(g, 'Result', ffeResult);
+        if (!currentResult || currentResult === '*') { g = setTag(g, 'Result', ffeResult); }
       } else if (!currentResult || currentResult === '*') {
         const manual = await cb.askResult(`${r.round} - ${r.color}/${opponent.name}`);
         g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
@@ -72,27 +72,21 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
 
       // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
       g = setTag(g, oppSide, opponent.name);
-      if (opponent.title && !getTag(g, `${oppSide}Title`))
-        g = setTag(g, `${oppSide}Title`, opponent.title);
-      if (opponent.fideId && !getTag(g, `${oppSide}FideId`))
-        g = setTag(g, `${oppSide}FideId`, opponent.fideId);
+      if (opponent.title && !getTag(g, `${oppSide}Title`)) { g = setTag(g, `${oppSide}Title`, opponent.title); }
+      if (opponent.fideId && !getTag(g, `${oppSide}FideId`)) { g = setTag(g, `${oppSide}FideId`, opponent.fideId); }
       const oppRatingElo = opponent[ratingKind];
       const oppElo = r.opponentElo?.replace(/\s*F$/, '') || (oppRatingElo ? String(oppRatingElo) : '');
-      if (oppElo && !getTag(g, `${oppSide}Elo`))
-        g = setTag(g, `${oppSide}Elo`, oppElo);
+      if (oppElo && !getTag(g, `${oppSide}Elo`)) { g = setTag(g, `${oppSide}Elo`, oppElo); }
 
       g = setTag(g, ourSide, our.name);
-      if (our.title && !getTag(g, `${ourSide}Title`))
-        g = setTag(g, `${ourSide}Title`, our.title);
-      if (our.fideId && !getTag(g, `${ourSide}FideId`))
-        g = setTag(g, `${ourSide}FideId`, our.fideId);
+      if (our.title && !getTag(g, `${ourSide}Title`)) { g = setTag(g, `${ourSide}Title`, our.title); }
+      if (our.fideId && !getTag(g, `${ourSide}FideId`)) { g = setTag(g, `${ourSide}FideId`, our.fideId); }
       const ourRatingElo = our[ratingKind];
       const ownEloTag = ourEloValue || (ourRatingElo ? String(ourRatingElo) : '');
-      if (ownEloTag && !getTag(g, `${ourSide}Elo`))
-        g = setTag(g, `${ourSide}Elo`, ownEloTag);
+      if (ownEloTag && !getTag(g, `${ourSide}Elo`)) { g = setTag(g, `${ourSide}Elo`, ownEloTag); }
     }
 
-    if (fiche.cadenceText) g = setTag(g, 'TimeControl', fiche.cadenceText);
+    if (fiche.cadenceText) { g = setTag(g, 'TimeControl', fiche.cadenceText); }
     result[gameIdx] = g;
   }
 

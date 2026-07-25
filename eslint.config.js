@@ -9,6 +9,8 @@ export default tseslint.config(
     plugins: { '@stylistic': stylistic },
     rules: {
       ...stylistic.configs.customize({ quotes: 'single', semi: true, braceStyle: '1tbs' }).rules,
+      'curly': ['error', 'multi-line'],
+      '@stylistic/max-statements-per-line': 'off',
     },
   },
   {
