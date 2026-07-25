@@ -45,17 +45,8 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
     if (r.color) {
       const ourSide = r.color === 'B' ? 'White' : 'Black';
       const oppSide = r.color === 'B' ? 'Black' : 'White';
-      const currentResult = getTag(g, 'Result');
-      if (r.result) {
-        const ffeResult = resultFromFfe(r.result, ourSide);
-        if (!currentResult || currentResult === '*') g = setTag(g, 'Result', ffeResult);
-      } else if (!currentResult || currentResult === '*') {
-        const manual = await cb.askResult(`${r.round} - ${r.color}/${r.opponentName ?? '?'}`);
-        g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
-      }
 
-      // déjà taggé (run précédent, ou saisi à la main sur lichess) — fetch
-      // direct par id, jamais besoin de rechercher/redemander.
+      // résoudre l'adversaire d'abord — le prompt résultat en a besoin
       let opponent: ResolvedFideName | null = null;
       const existingOppFideId = getTag(g, `${oppSide}FideId`);
       if (existingOppFideId) opponent = await cb.resolveFideById(existingOppFideId);
@@ -68,6 +59,15 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
         } else {
           opponent = await cb.askOpponentFideId();
         }
+      }
+
+      const currentResult = getTag(g, 'Result');
+      if (r.result) {
+        const ffeResult = resultFromFfe(r.result, ourSide);
+        if (!currentResult || currentResult === '*') g = setTag(g, 'Result', ffeResult);
+      } else if (!currentResult || currentResult === '*') {
+        const manual = await cb.askResult(`${r.round} - ${r.color}/${opponent.name}`);
+        g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
       }
 
       // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
