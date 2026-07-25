@@ -37,6 +37,7 @@ function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   let raw = normalized.slice(headerEnd + 2)
     .replace(/\{[^}]*\}/g, '')
     .replace(/\d+\.\.\./g, '')
+    .replace(/[!?]+/g, '')
     .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\s*$/g, '')
     .trim();
   let prev: string;
@@ -46,7 +47,7 @@ function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   const chess = new Chess();
   const bytes: number[] = [];
   for (const token of raw.split(/\s+/)) {
-    if (/^\d+\./.test(token)) continue;
+    if (!token || /^\d+\./.test(token) || token === '*') continue;
     try {
       const legal = shakmatyMoves(chess);
       const move = legal.find(m => m.san === token);
