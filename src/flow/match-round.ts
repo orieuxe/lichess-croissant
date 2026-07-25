@@ -63,7 +63,7 @@ export interface MatchResult {
 }
 
 function describeMatch(o: OurSideMatch): string {
-  const date = o.game.date.slice(0, 10);
+  const date = (o.game.date || '').slice(0, 10);
   return `${o.game.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.game.result} — ${date} (r${o.game.round_number})`;
 }
 
@@ -221,6 +221,10 @@ async function manualPick(
 ): Promise<ProfileGame | null> {
   const available = candidates.filter(c => !usedIds.has(c.id));
   const options = hintName ? rankedGames(hintName, available, ourName) : available.sort((a, b) => b.date.localeCompare(a.date));
+  if (options.length === 0 && hintName) {
+    console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — "${hintName}" introuvable dans les événements sélectionnés, chapitre exclu.`);
+    return null;
+  }
   if (options.length === 0) {
     console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat, chapitre exclu.`);
     return null;
@@ -288,59 +292,68 @@ export async function matchRound(
     }
     if (answer !== 'o') continue;
 
-    // flow grandroque
+    // flow grandroque — fetch (réseau), puis matching (local)
+    let slug: string | null;
+    let allGames: ProfileGame[];
     try {
-      const slug = await fetchPlayerSlug(ourFideId);
-      if (!slug) {
-        console.warn('Joueur introuvable sur grandroque.');
-        const fallback = await askFfeLink(ask, games, ffeMatchName);
-        if (fallback) return fallback;
-        continue;
-      }
-
-      const eventKeys = await pickEvents(slug, ask);
-      if (!eventKeys) continue;
-
-      const allGames = await fetchProfileGames(slug);
-      if (allGames.length === 0) {
-        console.warn('Aucune partie sur grandroque.');
-        continue;
-      }
-
-      const filtered = filterGamesByEvents(allGames, eventKeys);
-      if (filtered.length === 0) {
-        console.warn('Aucune partie trouvée pour les événements sélectionnés.');
-        continue;
-      }
-      console.log(`${filtered.length} parties filtrées sur ${allGames.length} au total.`);
-
-      let rounds: RoundResult[];
-      let includedIndices: number[];
-      if (eventKeys.size === 1) {
-        ({ rounds, includedIndices } = positionalMatch(games, filtered, ourName));
-      } else {
-        ({ rounds, includedIndices, games } = await nameBasedMatch(games, filtered, ourName, ask));
-      }
-
-      if (includedIndices.length === 0) {
-        console.warn('ALERTE: aucune partie matchée.');
-        continue;
-      }
-
-      const cadence = filtered[0].cadence;
-      const category: Category = cadence === 'classical' ? 'classique' : 'non-classique';
-      const ratingKind: RatingKind = cadence === 'classical' ? 'standardElo' : cadence === 'rapid' ? 'rapidElo' : 'blitzElo';
-
-      const fiche: FicheTournoi = {
-        title: study.name, startDate: '', endDate: '', numRounds: includedIndices.length, cadenceText: '', resultsLinks: {},
-      };
-      return { match: { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind, category }, filename, games };
+      slug = await fetchPlayerSlug(ourFideId);
     } catch {
-      console.warn('Grandroque indisponible.');
+      console.warn('Grandroque indisponible (slug).');
       const fallback = await askFfeLink(ask, games, ffeMatchName);
       if (fallback) return fallback;
       continue;
     }
+    if (!slug) {
+      console.warn('Joueur introuvable sur grandroque.');
+      const fallback = await askFfeLink(ask, games, ffeMatchName);
+      if (fallback) return fallback;
+      continue;
+    }
+
+    const eventKeys = await pickEvents(slug, ask);
+    if (!eventKeys) continue;
+
+    try {
+      allGames = await fetchProfileGames(slug);
+    } catch {
+      console.warn('Grandroque indisponible (games).');
+      const fallback = await askFfeLink(ask, games, ffeMatchName);
+      if (fallback) return fallback;
+      continue;
+    }
+    if (allGames.length === 0) {
+      console.warn('Aucune partie sur grandroque.');
+      continue;
+    }
+
+    const filtered = filterGamesByEvents(allGames, eventKeys);
+    if (filtered.length === 0) {
+      console.warn('Aucune partie trouvée pour les événements sélectionnés.');
+      continue;
+    }
+    console.log(`${filtered.length} parties filtrées sur ${allGames.length} au total.`);
+
+    let rounds: RoundResult[];
+    let includedIndices: number[];
+    if (eventKeys.size === 1) {
+      ({ rounds, includedIndices } = positionalMatch(games, filtered, ourName));
+    } else {
+      ({ rounds, includedIndices, games } = await nameBasedMatch(games, filtered, ourName, ask));
+    }
+
+    if (includedIndices.length === 0) {
+      console.warn('ALERTE: aucune partie matchée.');
+      continue;
+    }
+
+    const cadence = filtered[0].cadence;
+    const category: Category = cadence === 'classical' ? 'classique' : 'non-classique';
+    const ratingKind: RatingKind = cadence === 'classical' ? 'standardElo' : cadence === 'rapid' ? 'rapidElo' : 'blitzElo';
+
+    const fiche: FicheTournoi = {
+      title: study.name, startDate: '', endDate: '', numRounds: includedIndices.length, cadenceText: '', resultsLinks: {},
+    };
+    return { match: { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind, category }, filename, games };
   }
 }
 
