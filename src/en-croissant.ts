@@ -44,7 +44,7 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
   `);
 
   for (const g of pgn) {
-    const site = getTag(g, 'Site');
+    const site = getTag(g, 'Site') ?? getTag(g, 'ChapterURL');
     if (!site) continue;
     const siteExists = selectSite.get(site);
     if (siteExists) continue;
