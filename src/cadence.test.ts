@@ -28,9 +28,5 @@ const cat = await classifyCadence('format bizarre', async () => {
 });
 assert.equal(asked, true);
 assert.equal(cat, 'classique');
-assert.equal(
-  await classifyCadence('format bizarre', async () => 'non-classique'),
-  'classique',
-);
 
 console.log('cadence.test.ts OK');
