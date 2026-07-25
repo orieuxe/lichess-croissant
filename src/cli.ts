@@ -113,27 +113,38 @@ async function main() {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;
     const ourEloValue = ownElo.replace(/\s*F$/, '');
 
-    const uniqueEvents = [...new Set(rounds.map(r => r.event).filter(Boolean))];
-    let eventPrompt: string;
-    if (ffeUrl) {
-      eventPrompt = `Event (vide = nom study "${study.name}", "f" = titre FFE "${fiche.title}", ou texte libre) : `;
-    } else if (uniqueEvents.length > 0) {
-      const opts = uniqueEvents.map((e, i) => `"${i + 1}" = "${e}"`).join(', ');
-      eventPrompt = `Event (vide = "${study.name}", ${opts}, ou texte libre) : `;
-    } else {
-      eventPrompt = `Event (vide = "${study.name}", ou texte libre) : `;
+    // Prompt Event: un par compétition distincte quand les rounds ont déjà
+    // chacun leur propre event (mode grandroque multi-événements). Sinon,
+    // un seul prompt partagé (FFE ou manuel).
+    const eventByRound = new Map<string, string>();
+    if (!ffeUrl) {
+      const uniqueEvents = [...new Set(rounds.map(r => r.event).filter((e): e is string => !!e))];
+      for (const ev of uniqueEvents) {
+        const answer = (await ask(`Event pour "${ev}" (vide = "${ev}", ou texte libre) : `)).trim();
+        eventByRound.set(ev, answer || ev);
+      }
     }
-    const eventAnswer = await ask(eventPrompt).then(a => a.trim());
-    const eventValue = (() => {
-      if (eventAnswer === '') return ffeUrl ? study.name : study.name;
-      if (ffeUrl && eventAnswer.toLowerCase() === 'f') return fiche.title;
-      const n = parseInt(eventAnswer, 10) - 1;
-      if (uniqueEvents[n]) return uniqueEvents[n];
-      return eventAnswer;
-    })();
+    const sharedEventAnswer = await ask(
+      ffeUrl
+        ? `Event (vide = nom study "${study.name}", "f" = titre FFE "${fiche.title}", ou texte libre) : `
+        : `Event global (vide = "${study.name}", ou texte libre) : `,
+    ).then(a => a.trim());
+    const sharedEvent
+      = sharedEventAnswer === ''
+        ? study.name
+        : ffeUrl && sharedEventAnswer.toLowerCase() === 'f'
+          ? fiche.title
+          : sharedEventAnswer;
+
+    // Applique les renommages event par tournoi (mode grandroque multi-événements)
+    if (eventByRound.size > 0) {
+      for (const r of rounds) {
+        if (r.event) r.event = eventByRound.get(r.event!) ?? r.event;
+      }
+    }
 
     const enrichedGames = await enrichGames(
-      { games, includedIndices, rounds, fiche, ffeUrl, eventValue, our, ratingKind, ourEloValue },
+      { games, includedIndices, rounds, fiche, ffeUrl, eventValue: sharedEvent, our, ratingKind, ourEloValue },
       { askResult, askFideId, askOpponentFideId, resolveFideName, resolveFideById },
     );
 
