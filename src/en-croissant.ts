@@ -3,10 +3,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { Chess } from 'chess.js';
 import { splitGames, getTag } from './pgn.ts';
 
-// Extracts the raw movetext from a PGN game string (everything between the
-// header and the result/*), then encodes it into en-croissant's binary
-// format: one byte per move, each byte being the index of that move in the
-// list of legal moves at that position (shakmaty-compatible).
+// Encodes PGN movetext to en-croissant's binary format (one byte per move,
+// each byte = index in the legal-move list at that position).
 function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   const normalized = pgnGame.replace(/\r\n/g, '\n');
   const headerEnd = normalized.indexOf('\n\n');
@@ -16,7 +14,6 @@ function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
     .replace(/\d+\.\.\./g, '')
     .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\s*$/g, '')
     .trim();
-  // recursively remove parenthesized variations
   let prev: string;
   do {
     prev = raw;
@@ -42,9 +39,6 @@ function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   return { moves: new Uint8Array(bytes), plyCount: bytes.length };
 }
 
-// Syncs every game from a merged PGN file into the en-croissant sqlite DB.
-// Skips games whose Site URL already exists (idempotent — safe to call
-// after every run). Returns the number of newly inserted games.
 export function syncToDb(pgnPath: string, dbPath: string): number {
   const db = new DatabaseSync(dbPath);
   ensureSchema(db);
@@ -124,7 +118,6 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
     inserted++;
   }
 
-  // en-croissant caches counts in the Info table — update them
   if (inserted > 0) {
     db.prepare('UPDATE Info SET Value = (SELECT COUNT(*) FROM Games) WHERE Name = \'GameCount\'').run();
     db.prepare('UPDATE Info SET Value = (SELECT COUNT(*) FROM Players) WHERE Name = \'PlayerCount\'').run();
@@ -136,7 +129,6 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
   return inserted;
 }
 
-// Creates the en-croissant schema if the DB is brand new (non-classical DB).
 function ensureSchema(db: DatabaseSync): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS Info (Name TEXT, Value TEXT);

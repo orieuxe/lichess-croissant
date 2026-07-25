@@ -26,11 +26,7 @@ export interface EnrichCallbacks {
   resolveFideById: (id: string) => Promise<ResolvedFideName | null>;
 }
 
-// Tags every included game with Round/Event/Result/opponent+own identity+Elo,
-// mutating nothing in place — returns a new games array with only the
-// includedIndices entries touched. All FIDE/prompt side effects go through
-// the injected callbacks, so this is testable without hitting the network
-// or a real terminal.
+// Dependency-injected enrichment — testable without network/terminal.
 export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Promise<string[]> {
   const { games, includedIndices, rounds, fiche, ffeUrl, eventValue, our, ratingKind, ourEloValue } = params;
   const result = [...games];
@@ -74,7 +70,6 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
         g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
       }
 
-      // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
       g = setTag(g, oppSide, opponent.name);
       g = tagIf(g, `${oppSide}Title`, opponent.title);
       g = tagIf(g, `${oppSide}FideId`, opponent.fideId);

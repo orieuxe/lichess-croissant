@@ -189,10 +189,10 @@ export async function fetchClosedRounds(
     const whiteName = $pairing(cells[0]).text().trim();
     const resultText = $pairing(cells[1]).text().replace(/\u00A0/g, ' ').trim();
     const blackName = $pairing(cells[2]).text().trim();
-
-    const isWhite = normalizeLooseName(whiteName) === target;
-    const isBlack = normalizeLooseName(blackName) === target;
-    if (!isWhite && !isBlack) { return; }
+    const nWhite = normalizeLooseName(whiteName);
+    const nBlack = normalizeLooseName(blackName);
+    if (nWhite !== target && nBlack !== target) { return; }
+    const isWhite = nWhite === target;
 
     const opponentName = stripTitle(isWhite ? blackName : whiteName).trim();
     rounds.push({

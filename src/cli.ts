@@ -38,8 +38,6 @@ async function askFideId(ffeName: string): Promise<string> {
   );
 }
 
-// mode manuel: pas de nom connu du tout (chapitre pas parsable) — on demande
-// direct l'ID FIDE, ou à défaut le nom en clair. Jamais de placeholder "?".
 async function askOpponentFideId(): Promise<ResolvedFideName> {
   while (true) {
     const id = (await ask('ID FIDE de l\'adversaire (vide si inconnu) : ')).trim();
@@ -54,8 +52,6 @@ async function askOpponentFideId(): Promise<ResolvedFideName> {
   }
 }
 
-// Résultat inconnu (FFE non publié, ou mode manuel sans source) — on force
-// un choix, jamais de "*" qui traîne.
 async function askResult(title: string): Promise<'+' | '=' | '-'> {
   while (true) {
     const answer = await ask(
@@ -111,9 +107,6 @@ async function main() {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;
     const ourEloValue = ownElo.replace(/\s*F$/, '');
 
-    // Prompt Event: un par compétition distincte (mode grandroque) ou un seul
-    // (FFE/manual). Le fallback global n'existe pas — si chaque round a son
-    // event, la question globale ne s'applique à rien.
     const eventByRound = new Map<string, string>();
     const uniqueEvents = [...new Set(rounds.map(r => r.event).filter((e): e is string => !!e))];
     let sharedEvent = study.name;
@@ -131,7 +124,6 @@ async function main() {
       }
     }
 
-    // Applique les renommages event par tournoi (mode grandroque multi-événements)
     if (eventByRound.size > 0) {
       for (const r of rounds) {
         if (r.event) { r.event = eventByRound.get(r.event!) ?? r.event; }
