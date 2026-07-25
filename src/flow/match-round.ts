@@ -151,7 +151,7 @@ function positionalMatch(
       result: resultRelativeToUs(pg.result, o.ourSide),
       opponentName: o.opponentName,
       opponentElo: o.opponentElo !== null ? String(o.opponentElo) : null,
-      event: pg.competition_title,
+      // pas de event: ici — single-tournament, l'Event partagé (study name) suffit
     });
     includedIndices.push(i);
   }
