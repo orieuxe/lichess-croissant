@@ -16,7 +16,6 @@ import { pickStudy } from './flow/study-select.ts';
 import { matchRound } from './flow/match-round.ts';
 import { enrichGames } from './flow/enrich.ts';
 import { pushChapters } from './flow/push-lichess.ts';
-import { commitGameData, pushGithub } from './git.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FIDE_ID = process.env.FIDE_ID;
@@ -169,7 +168,6 @@ async function main() {
 
     writeFileSync(`downloaded/${filename}`, enrichedGames.join('\n\n\n') + '\n');
 
-    let committed = false;
     if (isOtherPlayer) {
       console.log('PGN sauvegardé (pas de merge — autre joueur, pas de manifest — relancer si besoin).');
     } else {
@@ -191,17 +189,15 @@ async function main() {
 
       manifest[study.id] = filename;
       saveManifest(manifest);
-      committed = commitGameData(filename, study.name);
     }
 
     const push = await ask(
-      '\nPush maintenant (lichess + github) ? (n = tout reste local, modifie le pgn puis push toi-même) [O/n] ',
+      '\nPush les tags sur lichess ? [O/n] ',
     );
     if (push.trim().toLowerCase().startsWith('n')) {
-      console.log('Rien poussé — pense à push toi-même (lichess + github) après tes modifs.');
+      console.log('Rien poussé.');
     } else {
       await pushChapters(study.id, enrichedGames, includedIndices, ffeUrl, our.name);
-      if (committed) pushGithub();
     }
   } else {
     console.log(
