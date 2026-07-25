@@ -135,7 +135,9 @@ function nameOverlapScore(a: string, b: string): number {
   const ta = new Set(normalizeName(a).split(' '));
   const tb = new Set(normalizeName(b).split(' '));
   let common = 0;
-  for (const t of ta) { if (tb.has(t)) { common++; } }
+  for (const t of ta) {
+    if (tb.has(t)) common++;
+  }
   return common;
 }
 
