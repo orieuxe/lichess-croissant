@@ -246,14 +246,14 @@ async function pickCompetitions(
     const existing = groups.get(id);
     if (existing) {
       existing.count++;
-      if (g.date > existing.lastDate) existing.lastDate = g.date;
+      if (g.date && g.date > (existing.lastDate || '')) existing.lastDate = g.date;
     } else {
-      groups.set(id, { title: g.competition_title, count: 1, lastDate: g.date });
+      groups.set(id, { title: g.competition_title, count: 1, lastDate: g.date || '' });
     }
   }
   const entries = [...groups.entries()]
     .map(([id, info]) => ({ id, ...info }))
-    .sort((a, b) => b.lastDate.localeCompare(a.lastDate));
+    .sort((a, b) => (b.lastDate || '').localeCompare(a.lastDate || ''));
   const PAGE = 10;
   const keys = new Set<string>();
   let offset = 0;
