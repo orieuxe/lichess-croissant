@@ -3,38 +3,57 @@ import { DatabaseSync } from 'node:sqlite';
 import { Chess } from 'chess.js';
 import { splitGames, getTag } from './pgn.ts';
 
+// chess.js and shakmaty order legal moves differently — en-croissant uses
+// shakmaty under the hood, so we replicate its move-list ordering here:
+// pieces by square index (A1..H8), then within each piece's moves by target
+// square descending (shakmaty generates single-push before double-push for
+// pawns, both by descending target square).
+function shakmatyMoves(chess: Chess) {
+  const allMoves = chess.moves({ verbose: true });
+  const turn = chess.turn();
+  const ordered: typeof allMoves = [];
+  for (let sq = 0; sq < 64; sq++) {
+    const alg = 'abcdefgh'[sq % 8] + (Math.floor(sq / 8) + 1);
+    const piece = chess.get(alg as any);
+    if (!piece || piece.color !== turn) continue;
+    const pieceMoves = allMoves.filter(m => m.from === alg);
+    if (!pieceMoves.length) continue;
+    pieceMoves.sort((a, b) => {
+      const aSq = 'abcdefgh'.indexOf(a.to[0]) + (parseInt(a.to[1]) - 1) * 8;
+      const bSq = 'abcdefgh'.indexOf(b.to[0]) + (parseInt(b.to[1]) - 1) * 8;
+      return bSq - aSq;
+    });
+    ordered.push(...pieceMoves);
+  }
+  return ordered;
+}
+
 // Encodes PGN movetext to en-croissant's binary format (one byte per move,
 // each byte = index in the legal-move list at that position).
 function encodeMoves(pgnGame: string): { moves: Uint8Array; plyCount: number } {
   const normalized = pgnGame.replace(/\r\n/g, '\n');
   const headerEnd = normalized.indexOf('\n\n');
-  if (headerEnd === -1) { return { moves: new Uint8Array(0), plyCount: 0 }; }
+  if (headerEnd === -1) return { moves: new Uint8Array(0), plyCount: 0 };
   let raw = normalized.slice(headerEnd + 2)
     .replace(/\{[^}]*\}/g, '')
     .replace(/\d+\.\.\./g, '')
     .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\s*$/g, '')
     .trim();
   let prev: string;
-  do {
-    prev = raw;
-    raw = raw.replace(/\([^()]*\)/g, '');
-  } while (raw !== prev);
-  if (!raw) { return { moves: new Uint8Array(0), plyCount: 0 }; }
+  do { prev = raw; raw = raw.replace(/\([^()]*\)/g, ''); } while (raw !== prev);
+  if (!raw) return { moves: new Uint8Array(0), plyCount: 0 };
 
   const chess = new Chess();
   const bytes: number[] = [];
-  const tokens = raw.split(/\s+/);
-  for (const token of tokens) {
-    if (/^\d+\./.test(token)) { continue; } // move number prefix
+  for (const token of raw.split(/\s+/)) {
+    if (/^\d+\./.test(token)) continue;
     try {
-      const legal = chess.moves({ verbose: true });
+      const legal = shakmatyMoves(chess);
       const move = legal.find(m => m.san === token);
-      if (!move) { break; }
+      if (!move) break;
       bytes.push(legal.indexOf(move));
       chess.move(token);
-    } catch {
-      break;
-    }
+    } catch { break; }
   }
   return { moves: new Uint8Array(bytes), plyCount: bytes.length };
 }
