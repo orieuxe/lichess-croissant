@@ -97,7 +97,7 @@ async function main() {
   console.log(`Téléchargé : downloaded/${downloadedFilename}`);
   const downloadedGames = splitGames(readFileSync(`downloaded/${downloadedFilename}`, 'utf8'));
 
-  const { match, filename, games } = await matchRound(study, downloadedFilename, downloadedGames, our.name, ask);
+  const { match, filename, games } = await matchRound(study, downloadedFilename, downloadedGames, FIDE_ID!, our.name, ask);
 
   if (match) {
     const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;

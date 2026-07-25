@@ -3,13 +3,13 @@ import { downloadStudy, type StudyRef } from '../lichess.ts';
 import { fetchFiche, fetchRounds, fetchClosedRounds, type FicheTournoi, type RoundResult } from '../ffe.ts';
 import { splitGames, getTag, setTag, previewMoves } from '../pgn.ts';
 import {
-  fetchPlayerMatches,
-  bestMatch,
-  topCandidates,
+  fetchPlayerSlug,
+  fetchProfileGames,
+  matchGame,
+  rankedGames,
   parseChapterHint,
   resultRelativeToUs,
-  toGrandroqueName,
-  type MatchHint,
+  ourSideOf,
   type OurSideMatch,
 } from '../grandroque.ts';
 import type { Category } from '../cadence.ts';
@@ -96,75 +96,82 @@ async function askMode(ask: (q: string) => Promise<string>): Promise<'ffe' | 'vr
 }
 
 function describeMatch(o: OurSideMatch): string {
-  const date = o.match.created_at.slice(0, 10);
-  return `${o.match.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.match.result} — ${date} — ${o.match.white_team_name} vs ${o.match.black_team_name}`;
+  const date = o.game.date.slice(0, 10);
+  return `${o.game.competition_title} — ${o.ourSide === 'White' ? 'B' : 'N'} vs ${o.opponentName} (${o.opponentElo ?? '?'}) — ${o.game.result} — ${date} (ronde ${o.game.round_number})`;
 }
 
 // mode vrac (grandroque, PLAN.md) : pas de fiche FFE unique, chaque chapitre
-// est matché indépendamment contre l'historique grandroque du joueur (un
-// seul fetch, mis en cache pour tout le run). Round n'est pas le vrai
-// round_number grandroque — resolvable seulement via /competitions/{id}/rounds,
-// et competition_title n'est PAS unique (250+ "Coupe de France" distinctes,
-// aucun filtre serveur) donc retrouver le bon competition_id coûterait un
-// scan de tous les candidats. À la place : Round = compteur local, incrémenté
-// à chaque partie matchée pour cette compétition dans CE run.
+// est matché contre /profiles/{slug}/games (toutes les parties du joueur,
+// équipe ET individuelles). Round est le vrai round_number, TimeControl est
+// la cadence réelle, Event est le competition_title — tout vient du même
+// endpoint, plus besoin de heuristique ni de compteur local.
 async function runVracMode(
   games: string[],
-  grandroqueName: string,
+  ourFideId: string,
+  ourName: string,
   studyName: string,
   ask: (q: string) => Promise<string>,
 ): Promise<MatchResult | null> {
-  const candidates = await fetchPlayerMatches(grandroqueName);
+  const slug = await fetchPlayerSlug(ourFideId);
+  if (!slug) {
+    console.warn(`ALERTE: joueur introuvable sur grandroque (FIDE ${ourFideId}).`);
+    return null;
+  }
+  const candidates = await fetchProfileGames(slug);
   if (candidates.length === 0) {
-    console.warn(`ALERTE: aucune partie grandroque trouvée pour "${grandroqueName}".`);
+    console.warn(`ALERTE: aucune partie grandroque trouvée pour le slug "${slug}".`);
     return null;
   }
 
   const rounds: RoundResult[] = [];
   const includedIndices: number[] = [];
-  const roundCounters = new Map<string, number>();
 
   for (const [i, g] of games.entries()) {
     const chapterName = getTag(g, 'ChapterName') ?? '';
-    const hint: MatchHint = { ...parseChapterHint(chapterName), date: chapterDateHint(g) };
-    let matched = bestMatch(candidates, grandroqueName, hint);
+    const hint = parseChapterHint(chapterName);
+    const hintName = hint.opponentName ?? '';
+    let pg = hintName ? matchGame(hintName, candidates, ourName) : null;
 
-    if (matched) {
-      console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — auto : ${describeMatch(matched)}`);
-    } else {
-      const options = topCandidates(candidates, grandroqueName, hint);
+    if (pg) {
+      const o = ourSideOf(pg, ourName);
+      console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — auto : ${describeMatch(o)}`);
+    } else if (hintName) {
+      const options = rankedGames(hintName, candidates, ourName);
       if (options.length === 0) {
         console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — aucun candidat grandroque, chapitre exclu.`);
         continue;
       }
       console.log(`\nPartie ${i + 1} (${chapterName || previewMoves(g, 10)}) — plusieurs candidats grandroque :`);
-      options.forEach((o, idx) => console.log(`  ${idx + 1}. ${describeMatch(o)}`));
+      options.forEach((g, idx) => {
+        const o = ourSideOf(g, ourName);
+        console.log(`  ${idx + 1}. ${describeMatch(o)}`);
+      });
       const pick = await ask('Numéro (vide = exclure ce chapitre) : ');
       const idx = parseInt(pick.trim(), 10) - 1;
       if (!options[idx]) {
         console.log('Chapitre exclu.');
         continue;
       }
-      matched = options[idx];
+      pg = options[idx];
+    } else {
+      console.log(`Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — titre de chapitre pas parsable, chapitre exclu.`);
+      continue;
     }
 
-    const eventTitle = matched.match.competition_title;
-    const nextRound = (roundCounters.get(eventTitle) ?? 0) + 1;
-    roundCounters.set(eventTitle, nextRound);
-
-    const color: 'B' | 'N' = matched.ourSide === 'White' ? 'B' : 'N';
-    if (matched.opponentFideId) {
+    const o = ourSideOf(pg, ourName);
+    const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
+    if (o.opponentFideId) {
       const oppSide = color === 'B' ? 'Black' : 'White';
-      games[i] = setTag(games[i], `${oppSide}FideId`, String(matched.opponentFideId));
+      games[i] = setTag(games[i], `${oppSide}FideId`, String(o.opponentFideId));
     }
 
     rounds.push({
-      round: nextRound,
+      round: pg.round_number,
       color,
-      result: resultRelativeToUs(matched.match.result, matched.ourSide),
-      opponentName: matched.opponentName,
-      opponentElo: matched.opponentElo !== null ? String(matched.opponentElo) : null,
-      event: eventTitle,
+      result: resultRelativeToUs(pg.result, o.ourSide),
+      opponentName: o.opponentName,
+      opponentElo: o.opponentElo !== null ? String(o.opponentElo) : null,
+      event: pg.competition_title,
     });
     includedIndices.push(i);
   }
@@ -183,11 +190,11 @@ async function runVracMode(
     resultsLinks: {},
   };
 
-  // ponytail: pas de cadence_preset côté player-matches (vivrait sur l'objet
-  // compétition, qu'on ne résout pas) — interclubs/coupe de France sont
-  // ~toujours classique en pratique, donc classique par défaut plutôt qu'un
-  // appel API de plus pour un cas marginal.
-  return { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind: 'standardElo', category: 'classique' };
+  const cadence = candidates[0].cadence;
+  const category: Category = cadence === 'classical' ? 'classique' : 'non-classique';
+  const ratingKind: RatingKind = cadence === 'classical' ? 'standardElo' : cadence === 'rapid' ? 'rapidElo' : 'blitzElo';
+
+  return { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind, category };
 }
 
 // The mode-select / FFE-link / mode-manuel / mode-vrac loop: resolve which
@@ -197,15 +204,14 @@ export async function matchRound(
   study: StudyRef,
   initialFilename: string,
   initialGames: string[],
-  ourFideName: string,
+  ourFideId: string,
+  ourName: string,
   ask: (q: string) => Promise<string>,
 ): Promise<{ match: MatchResult | null; filename: string; games: string[] }> {
   let filename = initialFilename;
   let games = initialGames;
-  // FFE displays names as "SURNAME Firstname", no comma; grandroque wants
-  // the same shape but is case-sensitive server-side (see toGrandroqueName).
-  const ffeMatchName = ourFideName.replace(',', '');
-  const grandroqueName = toGrandroqueName(ourFideName);
+  // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
+  const ffeMatchName = ourName.replace(',', '');
 
   while (true) {
     const mode = await askMode(ask);
@@ -218,7 +224,7 @@ export async function matchRound(
     let manualCategory: Category | null = null;
 
     if (mode === 'vrac') {
-      const vracMatch = await runVracMode(games, grandroqueName, study.name, ask);
+      const vracMatch = await runVracMode(games, ourFideId, ourName, study.name, ask);
       if (!vracMatch) continue;
       return { match: vracMatch, filename, games };
     }

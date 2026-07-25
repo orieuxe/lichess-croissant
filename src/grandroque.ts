@@ -1,48 +1,67 @@
 const API = 'https://api.grandroque.fr/api/v1';
 
-export interface PlayerMatch {
+export interface ProfileGame {
   id: string;
-  team_match_id: string;
-  board_number: number;
-  white_player_name: string;
-  white_player_elo: number | null;
-  white_fide_id: number | null;
-  black_player_name: string;
-  black_player_elo: number | null;
-  black_fide_id: number | null;
-  result: string;
-  created_at: string;
+  date: string;
   competition_title: string;
-  white_team_name: string;
-  black_team_name: string;
+  competition_id: string | null;
+  tournament_id: string | null;
+  board_number: number;
+  round_number: number;
+  white_player_name: string;
+  white_elo: number | null;
+  white_fide_id: number | null;
+  white_fide_title?: string | null;
+  black_player_name: string;
+  black_elo: number | null;
+  black_fide_id: number | null;
+  black_fide_title?: string | null;
+  result: string;
+  cadence: 'classical' | 'rapid' | 'blitz';
+  source_type: string;
 }
 
-// grandroque's player_name search is case-sensitive server-side (confirmed
-// live: "Orieux Etienne" -> [], "ORIEUX Etienne" -> real results) and stores
-// names FFE-style, "SURNAME Firstname" — takes the FIDE "Surname, Firstname"
-// format and reshapes it.
-export function toGrandroqueName(fideName: string): string {
-  const [surname, firstname] = fideName.split(',').map(s => s.trim());
-  return firstname ? `${surname.toUpperCase()} ${firstname}` : fideName.toUpperCase();
-}
-
-export async function fetchPlayerMatches(playerName: string): Promise<PlayerMatch[]> {
-  const res = await fetch(`${API}/competitions/player-matches?player_name=${encodeURIComponent(playerName)}`);
-  if (!res.ok) return [];
-  return res.json();
-}
-
-export interface MatchHint {
-  color: 'White' | 'Black' | null;
-  opponentName: string | null;
+export interface OurSideMatch {
+  game: ProfileGame;
+  ourSide: 'White' | 'Black';
+  opponentName: string;
   opponentElo: number | null;
-  date: Date | null;
+  opponentFideId: number | null;
+}
+
+// Resolves the profile slug from a FIDE id — avoids name-search ambiguity.
+export async function fetchPlayerSlug(fideId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${API}/players/fide/${encodeURIComponent(fideId)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.slug ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// All games (team competitions AND individual tournaments), paginated.
+export async function fetchProfileGames(slug: string): Promise<ProfileGame[]> {
+  const all: ProfileGame[] = [];
+  let cursor: string | undefined;
+  while (true) {
+    const params = new URLSearchParams({ limit: '100' });
+    if (cursor) params.set('cursor', cursor);
+    const res = await fetch(`${API}/profiles/${encodeURIComponent(slug)}/games?${params}`);
+    if (!res.ok) break;
+    const page = await res.json();
+    all.push(...(page.items ?? []));
+    if (!page.has_more || !page.next_cursor) break;
+    cursor = page.next_cursor;
+  }
+  return all;
 }
 
 function normalizeName(s: string): string {
   return s
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z\s]/g, ' ')
     .split(/\s+/)
@@ -59,30 +78,49 @@ function nameOverlapScore(a: string, b: string): number {
   return common;
 }
 
-export interface OurSideMatch {
-  match: PlayerMatch;
-  ourSide: 'White' | 'Black';
-  opponentName: string;
-  opponentElo: number | null;
-  opponentFideId: number | null;
+// The match that has the best opponent-name overlap with the hint — but only
+// when unambiguous (positive score, no tie). Returns null when the caller
+// should present a numbered picker or give up.
+export function matchGame(hintName: string, candidates: ProfileGame[], ourName: string): ProfileGame | null {
+  const scored = candidates
+    .map(g => ({ g, score: nameOverlapScore(hintName, opponentNameOf(g, ourName)) }))
+    .sort((a, b) => b.score - a.score);
+  if (scored.length === 0 || scored[0].score <= 0) return null;
+  if (scored.length > 1 && scored[0].score === scored[1].score) return null;
+  return scored[0].g;
 }
 
-export function ourSideOf(pm: PlayerMatch, ourName: string): OurSideMatch {
-  const ourIsWhite = normalizeName(pm.white_player_name) === normalizeName(ourName);
+// Ranked candidates when matchGame can't decide — best first, no threshold.
+export function rankedGames(hintName: string, candidates: ProfileGame[], ourName: string): ProfileGame[] {
+  return candidates
+    .map(g => ({ g, score: nameOverlapScore(hintName, opponentNameOf(g, ourName)) }))
+    .sort((a, b) => b.score - a.score)
+    .filter(s => s.score > 0)
+    .map(s => s.g);
+}
+
+function opponentNameOf(g: ProfileGame, ourName: string): string {
+  return normalizeName(g.white_player_name) === normalizeName(ourName)
+    ? g.black_player_name
+    : g.white_player_name;
+}
+
+export function ourSideOf(pg: ProfileGame, ourName: string): OurSideMatch {
+  const ourIsWhite = normalizeName(pg.white_player_name) === normalizeName(ourName);
   return ourIsWhite
     ? {
-        match: pm,
+        game: pg,
         ourSide: 'White',
-        opponentName: pm.black_player_name,
-        opponentElo: pm.black_player_elo,
-        opponentFideId: pm.black_fide_id,
+        opponentName: pg.black_player_name,
+        opponentElo: pg.black_elo,
+        opponentFideId: pg.black_fide_id,
       }
     : {
-        match: pm,
+        game: pg,
         ourSide: 'Black',
-        opponentName: pm.white_player_name,
-        opponentElo: pm.white_player_elo,
-        opponentFideId: pm.white_fide_id,
+        opponentName: pg.white_player_name,
+        opponentElo: pg.white_elo,
+        opponentFideId: pg.white_fide_id,
       };
 }
 
@@ -95,59 +133,8 @@ export function resultRelativeToUs(absoluteResult: string, ourSide: 'White' | 'B
   return null;
 }
 
-function scoreMatch(m: OurSideMatch, hint: MatchHint): number {
-  let score = 0;
-  if (hint.color) score += hint.color === m.ourSide ? 3 : -5;
-  if (hint.opponentName) score += nameOverlapScore(hint.opponentName, m.opponentName) * 2;
-  if (hint.opponentElo && m.opponentElo && Math.abs(hint.opponentElo - m.opponentElo) <= 5) score += 3;
-  if (hint.date) {
-    const created = new Date(m.match.created_at);
-    const days = Math.abs((created.getTime() - hint.date.getTime()) / 86400000);
-    if (days <= 1) score += 4;
-    else if (days <= 7) score += 2;
-    else if (days <= 30) score += 1;
-  }
-  return score;
-}
-
-function rankMatches(
-  candidates: PlayerMatch[],
-  ourName: string,
-  hint: MatchHint,
-): { m: OurSideMatch; score: number }[] {
-  return candidates
-    .map(pm => ourSideOf(pm, ourName))
-    .map(m => ({ m, score: scoreMatch(m, hint) }))
-    .sort((a, b) => b.score - a.score);
-}
-
-// ponytail: picks a match only when scoring is unambiguous (positive top
-// score, no tie) — anything murkier goes to the caller's manual picker
-// (topCandidates) rather than risk silently tagging the wrong game.
-export function bestMatch(
-  candidates: PlayerMatch[],
-  ourName: string,
-  hint: MatchHint,
-): OurSideMatch | null {
-  const scored = rankMatches(candidates, ourName, hint);
-  if (scored.length === 0 || scored[0].score <= 0) return null;
-  if (scored.length > 1 && scored[0].score === scored[1].score) return null;
-  return scored[0].m;
-}
-
-// For the manual picker when bestMatch can't decide — best-scored first,
-// no threshold (the human eyeballs team/opponent/date and decides).
-export function topCandidates(
-  candidates: PlayerMatch[],
-  ourName: string,
-  hint: MatchHint,
-  limit = 8,
-): OurSideMatch[] {
-  return rankMatches(candidates, ourName, hint).slice(0, limit).map(s => s.m);
-}
-
 // Best-effort parse of a chapter title like "B vs Muthaiah AL 2442".
-export function parseChapterHint(title: string): Omit<MatchHint, 'date'> {
+export function parseChapterHint(title: string): { color: 'White' | 'Black' | null; opponentName: string | null; opponentElo: number | null } {
   const m = title.match(/^([BN])\s+vs\.?\s*(.*?)\s*(\d{3,4})?$/i);
   if (!m) return { color: null, opponentName: null, opponentElo: null };
   return {

@@ -33,78 +33,80 @@
 
 Renommer le titre d'un chapitre existant ("B/N vs Nom, Prénom elo") : **pas possible via l'API publique lichess**, seuls les tags PGN sont modifiables (whitelist stricte : White/Black/Elo/Title/Team/FideId, TimeControl, Date, Result, Termination, Site, Event, Round, Board, Annotator, GameId — voir `StudyPgnTags.scala` dans lila), le titre n'est dérivé du PGN qu'à l'import initial. `UTCDate`/`UTCTime`/`ChapterName`/`EventURL` hors whitelist → 400 systématique, même pour delete, donc jamais envoyés au push. Feature request déposée : https://github.com/lichess-org/api/issues/660. À faire à la main sur lichess en attendant, ou si l'issue avance.
 
-Mode vrac : `Round` n'est **pas** le vrai `round_number` grandroque — voir section dédiée.
+Mode vrac : `Round` est le vrai `round_number` grandroque, `TimeControl` est la `cadence`
+réelle — voir section dédiée. Utilise `/profiles/{slug}/games` ([f]), pas `player-matches`.
 
-## Mode vrac (parties d'équipe sans tournoi FFE individuel) — fait, scope réduit
+## Mode vrac (grandroque) — équipe et individuels sans fiche FFE
 
 ### Contexte
 
 Certaines studies mélangent des parties d'événements différents (ex `otb-games-2` :
 Coupe de France, N4, Grand-Prix THF... dans les mêmes chapitres) — pas UN tournoi FFE
 applicable à toute la study. Cas fréquent : Interclubs nationaux / Coupe de France, où
-il n'y a pas de page FFE individuelle à fournir (pas de `FicheTournoi.aspx` pour un
-match d'équipe donné).
+il n'y a pas de page FFE individuelle à fournir.
 
 **grandroque.fr** (`api.grandroque.fr`) a une vraie API REST/JSON publique (OpenAPI en
 clair sur `/openapi.json`), et couvre les compétitions par équipe (Interclubs, Coupe
-de France) de façon bien plus exploitable que FFE (`Equipes.aspx` est un formulaire
-ASP.NET à postback). Ne couvre PAS les tournois individuels (Opens type
-Saint-Quentin) — ceux-là restent sur le flow FFE existant, inchangé.
+de France) **mais aussi les tournois individuels** (Opens type Saint-Quentin) — le
+tout via un seul endpoint unifié. Ne remplace PAS le flow FFE pour les tournois avec
+fiche (la grille FFE donne le round/opposant de façon déterministe, le matching
+grandroque reste heuristique par nom d'adversaire).
 
 ### Déclenchement
 
-Au prompt "Lien fiche FFE ou id du tournoi (vide = mode manuel/vrac)" : si vide,
-choix `[g]` grandroque / `[m]` manuel. `src/flow/match-round.ts` (`runVracMode`),
-traitement chapitre par chapitre au lieu d'un batch sur toute la study.
+Prompt upfront : `Tournoi solo FFE [f], compétition par équipe [e], parties non
+officielles [m]`. `[e]` → `runVracMode` dans `src/flow/match-round.ts`, traitement
+chapitre par chapitre.
 
-### Endpoint utilisé
+### Endpoints utilisés
 
-- `GET /api/v1/competitions/player-matches?player_name=ORIEUX Etienne` — un seul
-  fetch par run, mis en cache pour tous les chapitres. Donne, en clair, bien plus
-  que prévu au départ : `white_fide_id`/`black_fide_id`/`white_ffe_id`/`black_ffe_id`
-  en plus du nom/elo/résultat/`competition_title`/noms d'équipe/`created_at`.
-  **Conséquence : pas de recherche/matching FIDE nécessaire pour l'adversaire une
-  fois la bonne partie identifiée** — `resolveFideById` direct sur le
-  `black_fide_id`/`white_fide_id` fourni.
+- `GET /api/v1/players/fide/{fide_id}` — slug du profil (ex `"etienne-orieux"`),
+  résolu direct depuis le FIDE_ID connu, pas de recherche/ambiguïté.
+- `GET /api/v1/profiles/{slug}/games?limit=100` — TOUTES les parties du joueur
+  (compétitions par équipe ET tournois individuels) avec **tout** ce qui manquait
+  à `player-matches` : `round_number`, `date` (réelle), `cadence` (classical/rapid/
+  blitz), `white_fide_id`/`black_fide_id`, `competition_title`. Un ou deux appels
+  paginés par `next_cursor` (200-300 parties max par joueur en pratique, quelques
+  centaines de ms).
 
 ### Matching par partie (`src/grandroque.ts`)
 
-1. Titre de chapitre (`ChapterName`, avant suppression) parsé best-effort
-   (`parseChapterHint`) : couleur, nom adversaire, elo — convention `B/N vs Nom Elo`.
-2. Date du chapitre (`Date`/`UTCDate`, avant suppression) capturée comme signal de
-   proximité (`chapterDateHint`), comparée à `created_at` du candidat grandroque
-   (pas besoin de résoudre round_number/date réels — voir limitation ci-dessous).
-3. Score sur couleur / overlap nom adversaire / égalité elo (±5) / proximité date.
-   Candidat net (score positif, pas d'égalité) → auto-appliqué (`bestMatch`).
-4. Sinon → liste des candidats triés affichée (compétition, couleur/adversaire/elo,
-   résultat, date, équipes), choix par numéro ou vide pour exclure ce chapitre
-   (`topCandidates`, pas de seuil — l'humain juge).
+1. Titre de chapitre parsé (`parseChapterHint`) : nom adversaire — convention
+   `B/N vs Nom Elo`. Le nom adversaire est le seul champ utilisé pour le matching ;
+   la couleur et l'elo ne sont plus scorés (le endpoint `/games` donne directement
+   le round_number/date/cadence pour chaque match, plus besoin d'heuristique
+   complexe).
+2. `matchGame(hintName, candidates, ourName)` : overlap de tokens sur le nom
+   adverse (un seul token suffit pour matcher). Si un seul candidat avec score
+   positif → auto-appliqué. Si zéro ou plusieurs → `rankedGames` pour le picker
+   manuel (trié par score, sans seuil).
+3. Chapitre sans titre parsable → affiché et exclu (impossible de deviner
+   l'adversaire sans hint).
 
 ### Tags posés en mode vrac
 
-- `Event` = `competition_title` grandroque, **par partie** (`RoundResult.event`,
-  overrides l'Event partagé du run dans `enrich.ts`) — une même study peut mélanger
-  Coupe de France et Interclubs sans problème.
-- `Round` = compteur local, incrémenté à chaque partie matchée pour cette
-  compétition dans CE run (`1, 2, 3...` par `competition_title` rencontré) — **pas**
-  le vrai `round_number` grandroque, voir Limitation connue.
-- `White`/`Black`/`Elo`/`Result` : mêmes règles que le flow FFE (`enrich.ts` commun,
-  aucune branche spécifique) — Elo direct du candidat matché, Result dérivé du score
-  absolu grandroque (`resultRelativeToUs`) via le même encodage +/=/- que la FFE.
-- `TimeControl` : non posé (catégorie de merge forcée `classique` par défaut à la
-  place — voir Limitation connue).
+- `Round` = **vrai `round_number`** grandroque (plus de compteur local par compétition)
+- `Event` = `competition_title` grandroque, **par partie** (`RoundResult.event`)
+- `White`/`Black` = noms normalisés (`ourSideOf` → `resolveFideById` via le
+  `white_fide_id`/`black_fide_id` direct dans le match, pas de recherche)
+- `Elo`/`Title`/`FideId` : comme le reste du pipeline (`enrich.ts` commun), résolus
+  via `resolveFideById`
+- `Result` = dérivé du score absolu grandroque (`resultRelativeToUs`)
+- `TimeControl` = `cadence` réelle (classical/rapid/blitz) — plus de `classique`
+  en dur
+- `Date` jamais touché (convention PGN inchangée)
+- Catégorie de merge dérivée de `cadence` : classical → classique, rapid/blitz →
+  non-classique
 
-### Limitation connue (découverte en implémentant, scope réduit vs plan initial)
+### Limitations
 
-Le plan initial visait `Round` = vrai `round_number` grandroque via
-`/competitions/{competition_id}/rounds`, résolu depuis `competition_title` via
-`/competitions`. **`competition_title` n'est pas unique** : "Coupe de France" à elle
-seule a 250+ entrées distinctes dans `/competitions` (une par poule/saison
-apparemment), sans aucun filtre serveur (`?title=` etc.) pour les départager —
-retrouver le bon `competition_id` demanderait de scanner tous les candidats un par
-un, pas praticable. Idem pour `cadence_preset`/`cadence_exact` (vivent sur l'objet
-compétition, jamais résolu) : catégorie de merge forcée `classique` par défaut, les
-compétitions par équipe FFE étant quasi toujours en cadence classique en pratique.
+- Le matching repose uniquement sur le nom d'adversaire parsé du titre de chapitre
+  (`ChapterName`, convention `B/N vs Nom Elo`). Sans nom parsable, la partie est
+  exclue — l'utilisateur peut la corriger à la main (renommer le chapitre sur
+  lichess puis relancer le téléchargement).
+- `matchGame` refuse l'auto-match si deux candidats ont le même nom adverse (cas
+  rare : même adversaire rencontré deux fois dans deux compétitions différentes
+  le même jour) → picker manuel présenté.
 
 ## Reste (phase 2, hors scope actuel)
 
