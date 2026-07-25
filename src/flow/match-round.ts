@@ -255,15 +255,28 @@ async function pickEvents(
     console.warn('Aucun événement trouvé sur grandroque.');
     return null;
   }
-  console.log('\nTournois/compétitions grandroque :');
-  events.forEach((e, i) => console.log(`  ${i + 1}. [${e.type}] ${e.label} (${e.sublabel}) — ${e.games} parties — ${e.date.slice(0, 10)}`));
-  const pick = await ask('Numéro(s) (virgule pour plusieurs, vide = annuler) : ');
-  if (!pick.trim()) return null;
+  const PAGE = 10;
   const keys = new Set<string>();
-  for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
-    if (events[n]) keys.add(events[n].key);
+  let offset = 0;
+  while (true) {
+    const slice = events.slice(offset, offset + PAGE);
+    console.log(`\nTournois/compétitions grandroque (${offset + 1}-${Math.min(offset + PAGE, events.length)}/${events.length}) :`);
+    slice.forEach((e, i) => console.log(`  ${i + 1}. [${e.type}] ${e.label} (${e.sublabel}) — ${e.games} parties — ${e.date.slice(0, 10)}`));
+    const hasMore = offset + PAGE < events.length;
+    const prompt = hasMore
+      ? 'Numéro(s) (virgule pour plusieurs, "+" = voir plus, vide = annuler) : '
+      : 'Numéro(s) (virgule pour plusieurs, vide = annuler) : ';
+    const pick = (await ask(prompt)).trim();
+    if (pick === '+') {
+      offset += PAGE;
+      continue;
+    }
+    if (!pick) return null;
+    for (const n of pick.split(',').map(s => parseInt(s.trim(), 10) - 1)) {
+      if (events[offset + n]) keys.add(events[offset + n].key);
+    }
+    return keys.size ? keys : null;
   }
-  return keys.size ? keys : null;
 }
 
 // The main entry point: picks the mode (FIDE/grandroque vs. manual),
