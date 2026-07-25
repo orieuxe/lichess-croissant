@@ -1,29 +1,21 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import {
   listStudies,
   downloadStudy,
   loadManifest,
   saveManifest,
-  studiesNotDownloaded,
-  extractChapterId,
-  updateChapterTags,
   loadIgnored,
-  ignoreStudy,
 } from './lichess.ts';
-import { fetchFiche, fetchRounds, fetchClosedRounds, type FicheTournoi, type RoundResult } from './ffe.ts';
 import { classifyCadence, type Category } from './cadence.ts';
-import {
-  splitGames,
-  setTag,
-  getTag,
-  removeTag,
-  previewMoves,
-  resultFromFfe,
-} from './pgn.ts';
+import { splitGames, getTag, previewMoves, desiredChapterTitle } from './pgn.ts';
 import { mergeCategory } from './merge.ts';
 import { resolveFideName, getFidePlayer, resolveFideById, normalizeUnmatchedName, type ResolvedFideName } from './fide.ts';
+import { pickStudy } from './flow/study-select.ts';
+import { matchRound } from './flow/match-round.ts';
+import { enrichGames } from './flow/enrich.ts';
+import { pushChapters } from './flow/push-lichess.ts';
+import { commitGameData, pushGithub } from './git.ts';
 
 const LICHESS_USERNAME = 'timoruu';
 const FIDE_ID = process.env.FIDE_ID;
@@ -44,22 +36,6 @@ async function askFideId(ffeName: string): Promise<string> {
   return ask(
     `Pas de correspondance FIDE claire pour "${ffeName}" — ID FIDE (vide = garder tel quel) : `,
   );
-}
-
-type RatingKind = 'standardElo' | 'rapidElo' | 'blitzElo';
-
-// mode manuel: pas de fiche FFE donc pas de cadence texte à classifier — on
-// demande direct le format, ce qui donne à la fois la catégorie de merge et
-// quel rating FIDE (standard/rapide/blitz) piocher pour les Elo.
-async function askCadenceKind(): Promise<{ category: Category; ratingKind: RatingKind }> {
-  while (true) {
-    const answer = (await ask('Cadence — [s] standard/classique, [r] rapide, [b] blitz : '))
-      .trim()
-      .toLowerCase();
-    if (answer === 's') return { category: 'classique', ratingKind: 'standardElo' };
-    if (answer === 'r') return { category: 'non-classique', ratingKind: 'rapidElo' };
-    if (answer === 'b') return { category: 'non-classique', ratingKind: 'blitzElo' };
-  }
 }
 
 // mode manuel: pas de nom connu du tout (chapitre pas parsable) — on demande
@@ -94,49 +70,6 @@ async function askResult(title: string): Promise<'+' | '=' | '-'> {
   }
 }
 
-// "B/N vs Nom, Prénom elo" — the chapter title convention, used both in the
-// recap and next to the lichess push log (can't be pushed, see PLAN.md).
-function desiredChapterTitle(g: string, ourName: string): string {
-  const ourSide = getTag(g, 'White') === ourName ? 'White' : 'Black';
-  const oppSide = ourSide === 'White' ? 'Black' : 'White';
-  const letter = ourSide === 'White' ? 'B' : 'N';
-  const oppName = getTag(g, oppSide) ?? '?';
-  const oppElo = getTag(g, `${oppSide}Elo`) ?? '?';
-  return `${letter} vs ${oppName} ${oppElo}`;
-}
-
-// Auto-commit only the data files this run touched — never src/, so an
-// in-progress code change on the branch can't get swept into a data commit.
-// Local only — github push and lichess push are a separate, later step (see
-// pushEverywhere) so a manual pgn tweak can slot in before anything external
-// happens.
-function commitGameData(filename: string, studyName: string): boolean {
-  try {
-    execFileSync('git', [
-      'add', '-A', '--',
-      `downloaded/${filename}`, 'manifest.json',
-      'merged_classique_*.pgn', 'merged_non-classique_*.pgn',
-    ]);
-    execFileSync('git', ['commit', '-m', `feat: add ${studyName} games`]);
-    console.log('Commit git créé (données seulement).');
-    return true;
-  }
-  catch (err) {
-    console.warn(`git commit sauté (${(err as Error).message.split('\n')[0]})`);
-    return false;
-  }
-}
-
-function pushGithub() {
-  try {
-    execFileSync('git', ['push']);
-    console.log('Poussé sur github.');
-  }
-  catch (err) {
-    console.warn(`git push échoué (${(err as Error).message.split('\n')[0]})`);
-  }
-}
-
 async function main() {
   if (!FIDE_ID) throw new Error('FIDE_ID not set (check .env)');
   const ownPlayer = await getFidePlayer(FIDE_ID);
@@ -145,7 +78,9 @@ async function main() {
     name: ownPlayer.name,
     title: ownPlayer.title,
     fideId: String(ownPlayer.id),
-    elo: ownPlayer.standard,
+    standardElo: ownPlayer.standard,
+    rapidElo: ownPlayer.rapid,
+    blitzElo: ownPlayer.blitz,
   };
   // FFE displays names as "SURNAME Firstname", no comma — our.name is "Surname, Firstname"
   const ffeMatchName = ownPlayer.name.replace(',', '');
@@ -153,185 +88,23 @@ async function main() {
   const manifest = loadManifest();
   const studies = await listStudies(LICHESS_USERNAME);
 
-  let study: { id: string; name: string } | undefined;
-  while (!study) {
-    const suggestions = studiesNotDownloaded(studies, manifest, loadIgnored());
-
-    console.log(`\nStudies pas encore téléchargées (${suggestions.length}) :`);
-    suggestions.forEach((s, i) => console.log(`  ${i + 1}. ${s.name}`));
-
-    const choice = await ask(
-      '\nNuméro à télécharger, "i<numéro>" pour ignorer définitivement (vide = quitter) : ',
-    );
-    if (!choice.trim()) {
-      rl.close();
-      return;
-    }
-
-    const ignoreMatch = choice.trim().match(/^i(\d+)$/i);
-    if (ignoreMatch) {
-      const toIgnore = suggestions[parseInt(ignoreMatch[1], 10) - 1];
-      if (!toIgnore) throw new Error('choix invalide');
-      ignoreStudy(toIgnore.id);
-      console.log(`Ignorée : ${toIgnore.name}`);
-      continue;
-    }
-
-    study = suggestions[parseInt(choice, 10) - 1];
-    if (!study) throw new Error('choix invalide');
+  const study = await pickStudy(studies, manifest, loadIgnored(), ask);
+  if (!study) {
+    rl.close();
+    return;
   }
 
   console.log(`Study lichess : https://lichess.org/study/${study.id}`);
 
-  let filename = await downloadStudy(study.id);
-  console.log(`Téléchargé : downloaded/${filename}`);
+  const downloadedFilename = await downloadStudy(study.id);
+  console.log(`Téléchargé : downloaded/${downloadedFilename}`);
+  const downloadedGames = splitGames(readFileSync(`downloaded/${downloadedFilename}`, 'utf8'));
 
-  let games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
-
-  let match: {
-    fiche: FicheTournoi;
-    ffeUrl: string;
-    rounds: RoundResult[];
-    ownElo: string;
-    includedIndices: number[];
-  } | null = null;
-  let ratingKind: RatingKind = 'standardElo';
-  let manualCategory: Category | null = null;
-
-  while (true) {
-    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel/skip) : ');
-
-    let fiche: FicheTournoi;
-    let ffeUrl = '';
-    let ownElo = '';
-    let rounds: RoundResult[];
-
-    if (!ffeUrlAnswer.trim()) {
-      const manual = await ask(
-        'Pas de lien FFE — mode manuel (parties non officielles, sans fiche FFE) ? [O/n] ',
-      );
-      if (manual.trim().toLowerCase().startsWith('n')) break;
-
-      ({ category: manualCategory, ratingKind } = await askCadenceKind());
-
-      fiche = {
-        title: study.name,
-        startDate: '',
-        endDate: '',
-        numRounds: games.length,
-        cadenceText: '',
-        resultsLinks: {},
-      };
-      rounds = [];
-      for (const [i, g] of games.entries()) {
-        const chapterName = getTag(g, 'ChapterName') ?? '';
-        // convention "B/N vs Nom, Prénom elo" tapée par le joueur lui-même
-        // (voir desiredChapterTitle) — best-effort, rien de garanti.
-        const m = chapterName.match(/^(B|N)\s+vs\s+(.+?)(?:\s+(\d{3,4}))?\s*$/i);
-        let color: 'B' | 'N';
-        let opponentName: string | null = null;
-        let opponentElo: string | null = null;
-        if (m) {
-          color = m[1].toUpperCase() as 'B' | 'N';
-          opponentName = m[2].trim();
-          opponentElo = m[3] ?? null;
-        }
-        else {
-          const colorAnswer = await ask(
-            `Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — tu jouais Blanc ou Noir ? [b/n] `,
-          );
-          color = colorAnswer.trim().toLowerCase().startsWith('n') ? 'N' : 'B';
-        }
-        rounds.push({ round: i + 1, color, result: null, opponentName, opponentElo });
-      }
-    }
-    else {
-      const raw = ffeUrlAnswer.trim();
-      ffeUrl = /^\d+$/.test(raw)
-        ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`
-        : raw;
-
-      fiche = await fetchFiche(ffeUrl);
-
-      if (fiche.resultsLinks.Ga) {
-        ({ ownElo, rounds } = await fetchRounds(fiche.resultsLinks.Ga, ffeMatchName));
-      }
-      else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
-        // closed/round-robin tournament: no Grille Américaine, same data lives
-        // across the Pairing (round-by-round) and Berger (name→Elo) pages.
-        ({ ownElo, rounds } = await fetchClosedRounds(
-          fiche.resultsLinks.Pairing,
-          fiche.resultsLinks.Berger,
-          ffeMatchName,
-        ));
-      }
-      else {
-        console.warn(
-          `ALERTE: pas de "Grille Américaine" ni de "Pairing"+"Berger" pour ce tournoi (formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
-        );
-        continue;
-      }
-    }
-
-    const byeRounds = new Set<number>();
-    while (games.length < fiche.numRounds - byeRounds.size) {
-      const retry = await ask(
-        `\n${games.length} parties téléchargées, ${fiche.numRounds - byeRounds.size} rondes attendues — ajoute les parties manquantes sur la study lichess puis Entrée pour réessayer, numéro(s) de ronde non jouée (bye/forfait, virgule) si c'est ça, ou texte quelconque pour abandonner ce lien : `,
-      );
-      const roundNumbers = retry.trim().match(/^[\d\s,]+$/)
-        ? retry.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !Number.isNaN(n))
-        : [];
-      if (roundNumbers.length) {
-        roundNumbers.forEach(n => byeRounds.add(n));
-        continue;
-      }
-      if (retry.trim()) break;
-      filename = await downloadStudy(study.id);
-      games = splitGames(readFileSync(`downloaded/${filename}`, 'utf8'));
-      console.log(`Retéléchargé : downloaded/${filename} (${games.length} parties)`);
-    }
-    if (byeRounds.size) {
-      rounds = rounds.filter(r => !byeRounds.has(r.round));
-      console.log(`Rondes ${[...byeRounds].join(', ')} exclues (bye/forfait déclaré).`);
-    }
-    const expectedRounds = fiche.numRounds - byeRounds.size;
-
-    let includedIndices = games.map((_, i) => i);
-    if (games.length > expectedRounds) {
-      console.log(
-        `\n${games.length} parties téléchargées, ${expectedRounds} rondes attendues — laquelle exclure ?`,
-      );
-      games.forEach((g, i) => {
-        const chapter = getTag(g, 'ChapterName') ?? getTag(g, 'Event') ?? '?';
-        console.log(`  ${i + 1}. ${chapter} — ${previewMoves(g, 12)}`);
-      });
-      const excludeAnswer = await ask(
-        'Numéros à exclure (virgule, vide = aucun) : ',
-      );
-      const excluded = new Set(
-        excludeAnswer
-          .split(',')
-          .map(s => parseInt(s.trim(), 10) - 1)
-          .filter(n => !Number.isNaN(n)),
-      );
-      includedIndices = includedIndices.filter(i => !excluded.has(i));
-    }
-
-    if (includedIndices.length !== expectedRounds) {
-      console.warn(
-        `ALERTE: ${includedIndices.length} parties retenues vs ${expectedRounds} rondes attendues (mauvais lien ? mauvais tournoi ?).`,
-      );
-      continue;
-    }
-
-    match = { fiche, ffeUrl, rounds, ownElo, includedIndices };
-    break;
-  }
+  const { match, filename, games } = await matchRound(study, downloadedFilename, downloadedGames, ffeMatchName, ask);
 
   if (match) {
-    const { fiche, ffeUrl, rounds, ownElo, includedIndices } = match;
+    const { fiche, ffeUrl, rounds, ownElo, includedIndices, ratingKind, category: manualCategory } = match;
     const ourEloValue = ownElo.replace(/\s*F$/, '');
-    const opponentNameCache = new Map<string, ResolvedFideName>();
 
     const eventAnswer = await ask(
       ffeUrl
@@ -345,73 +118,17 @@ async function main() {
           ? study.name
           : eventAnswer.trim();
 
-    for (const [roundIdx, gameIdx] of includedIndices.entries()) {
-      const r = rounds[roundIdx];
-      let g = games[gameIdx];
-      g = setTag(g, 'Round', String(r.round));
-      g = setTag(g, 'Event', eventValue);
-      if (ffeUrl) g = setTag(g, 'EventURL', ffeUrl);
-      g = removeTag(g, 'UTCDate');
-      g = removeTag(g, 'UTCTime');
-      g = removeTag(g, 'ChapterName');
-      if (r.color) {
-        const ourSide = r.color === 'B' ? 'White' : 'Black';
-        const oppSide = r.color === 'B' ? 'Black' : 'White';
-        const currentResult = getTag(g, 'Result');
-        if (r.result) {
-          const result = resultFromFfe(r.result, ourSide);
-          if (!currentResult || currentResult === '*') g = setTag(g, 'Result', result);
-        }
-        else if (!currentResult || currentResult === '*') {
-          const manual = await askResult(`${r.round} - ${r.color}/${r.opponentName ?? '?'}`);
-          g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
-        }
-        // déjà taggé (run précédent, ou saisi à la main sur lichess) — fetch
-        // direct par id, jamais besoin de rechercher/redemander.
-        let opponent: ResolvedFideName | null = null;
-        const existingOppFideId = getTag(g, `${oppSide}FideId`);
-        if (existingOppFideId) opponent = await resolveFideById(existingOppFideId);
-        if (!opponent) {
-          if (r.opponentName) {
-            if (!opponentNameCache.has(r.opponentName)) {
-              opponentNameCache.set(r.opponentName, await resolveFideName(r.opponentName, askFideId));
-            }
-            opponent = opponentNameCache.get(r.opponentName)!;
-          }
-          else {
-            opponent = await askOpponentFideId();
-          }
-        }
-        // toujours écraser par le nom normalisé FIDE, même si lichess en a déjà un
-        g = setTag(g, oppSide, opponent.name);
-        if (opponent.title && !getTag(g, `${oppSide}Title`))
-          g = setTag(g, `${oppSide}Title`, opponent.title);
-        if (opponent.fideId && !getTag(g, `${oppSide}FideId`))
-          g = setTag(g, `${oppSide}FideId`, opponent.fideId);
-        const oppRatingElo = opponent[ratingKind];
-        const oppElo = r.opponentElo?.replace(/\s*F$/, '') || (oppRatingElo ? String(oppRatingElo) : '');
-        if (oppElo && !getTag(g, `${oppSide}Elo`))
-          g = setTag(g, `${oppSide}Elo`, oppElo);
-        g = setTag(g, ourSide, our.name);
-        if (our.title && !getTag(g, `${ourSide}Title`))
-          g = setTag(g, `${ourSide}Title`, our.title);
-        if (our.fideId && !getTag(g, `${ourSide}FideId`))
-          g = setTag(g, `${ourSide}FideId`, our.fideId);
-        const ourRatingElo = our[ratingKind];
-        const ownEloTag = ourEloValue || (ourRatingElo ? String(ourRatingElo) : '');
-        if (ownEloTag && !getTag(g, `${ourSide}Elo`))
-          g = setTag(g, `${ourSide}Elo`, ownEloTag);
-      }
-      if (fiche.cadenceText) g = setTag(g, 'TimeControl', fiche.cadenceText);
-      games[gameIdx] = g;
-    }
+    const enrichedGames = await enrichGames(
+      { games, includedIndices, rounds, fiche, ffeUrl, eventValue, our, ratingKind, ourEloValue },
+      { askResult, askFideId, askOpponentFideId, resolveFideName, resolveFideById },
+    );
 
     const category = manualCategory ?? await classifyCadence(fiche.cadenceText, askCategory);
     console.log(`\nCadence "${fiche.cadenceText}" -> ${category}`);
 
     console.log('\nRécap avant sauvegarde :');
     for (const gameIdx of includedIndices) {
-      const g = games[gameIdx];
+      const g = enrichedGames[gameIdx];
       console.log(
         `  ${getTag(g, 'Round')} - ${desiredChapterTitle(g, our.name)} (${getTag(g, 'Result')})`,
       );
@@ -425,11 +142,8 @@ async function main() {
       return;
     }
 
-    writeFileSync(`downloaded/${filename}`, games.join('\n\n\n') + '\n');
-    const merged = mergeCategory(
-      category,
-      includedIndices.map(i => games[i]),
-    );
+    writeFileSync(`downloaded/${filename}`, enrichedGames.join('\n\n\n') + '\n');
+    const merged = mergeCategory(category, includedIndices.map(i => enrichedGames[i]));
     console.log(`Fusionné dans ${merged}`);
 
     // ponytail: manifest only written once the flow reaches a deliberate
@@ -446,50 +160,7 @@ async function main() {
       console.log('Rien poussé — pense à push toi-même (lichess + github) après tes modifs.');
     }
     else {
-      console.log('\nMise à jour des chapitres sur lichess...');
-      for (const gameIdx of includedIndices) {
-        const g = games[gameIdx];
-        const chapterId = extractChapterId(g);
-        if (!chapterId) {
-          console.warn(`  chapitre introuvable pour la partie ${gameIdx + 1}, skip`);
-          continue;
-        }
-        // ponytail: lichess's chapter-tags endpoint only accepts a fixed tag
-        // whitelist (see lila's StudyPgnTags.scala) — UTCDate/UTCTime/
-        // ChapterName/EventURL aren't in it and 400 if sent, even to delete.
-        const tags: Record<string, string> = {};
-        for (const tag of [
-          'Round',
-          'Event',
-          'Result',
-          'White',
-          'Black',
-          'WhiteElo',
-          'BlackElo',
-          'WhiteTitle',
-          'BlackTitle',
-          'WhiteFideId',
-          'BlackFideId',
-          'TimeControl',
-        ]) {
-          const value = getTag(g, tag);
-          if (value) tags[tag] = value;
-        }
-        // EventURL isn't a tag lichess accepts — use Event for the FFE link directly
-        // (skip in mode manuel, il n'y a pas de lien).
-        if (ffeUrl) tags.Event = ffeUrl;
-        const title = desiredChapterTitle(g, our.name);
-        try {
-          await updateChapterTags(study.id, chapterId, tags);
-          console.log(`  ${chapterId} (${title}) mis à jour`);
-        }
-        catch (err) {
-          console.warn(`  ${chapterId} (${title}) échec: ${(err as Error).message}`);
-        }
-      }
-      console.log(
-        '(le titre du chapitre lui-même — "B/N vs Nom, Prénom elo" — ne peut pas être renommé via l\'API publique lichess, à faire à la main si besoin)',
-      );
+      await pushChapters(study.id, enrichedGames, includedIndices, ffeUrl, our.name);
       if (committed) pushGithub();
     }
   }

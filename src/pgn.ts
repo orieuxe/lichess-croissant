@@ -48,3 +48,14 @@ export function previewMoves(game: string, tokenCount = 14): string {
   moveText = moveText.replace(/\s*(1-0|0-1|1\/2-1\/2|\*)\s*$/, '');
   return moveText.trim().split(/\s+/).slice(0, tokenCount).join(' ');
 }
+
+// "B/N vs Nom, Prénom elo" — the chapter title convention, used both in the
+// recap and next to the lichess push log (can't be pushed, see PLAN.md).
+export function desiredChapterTitle(game: string, ourName: string): string {
+  const ourSide = getTag(game, 'White') === ourName ? 'White' : 'Black';
+  const oppSide = ourSide === 'White' ? 'Black' : 'White';
+  const letter = ourSide === 'White' ? 'B' : 'N';
+  const oppName = getTag(game, oppSide) ?? '?';
+  const oppElo = getTag(game, `${oppSide}Elo`) ?? '?';
+  return `${letter} vs ${oppName} ${oppElo}`;
+}

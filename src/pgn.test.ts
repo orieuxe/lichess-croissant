@@ -6,6 +6,7 @@ import {
   removeTag,
   previewMoves,
   resultFromFfe,
+  desiredChapterTitle,
 } from './pgn.ts';
 
 const sample = `[Event "A"]
@@ -50,5 +51,10 @@ const annotated = `[Event "C"]
 
 1. e4 { [%eval 0.2] } e5 (1... c5 2. Nf3) 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 1-0`;
 assert.equal(previewMoves(annotated, 8), '1. e4 e5 2. Nf3 Nc6 3. Bb5');
+
+const whiteGame = '[White "Orieux, Etienne"]\n[Black "Dubuisson, Samuel"]\n[BlackElo "2173"]\n\n1. e4 *';
+assert.equal(desiredChapterTitle(whiteGame, 'Orieux, Etienne'), 'B vs Dubuisson, Samuel 2173');
+const blackGame = '[White "Dubuisson, Samuel"]\n[Black "Orieux, Etienne"]\n\n1. e4 *';
+assert.equal(desiredChapterTitle(blackGame, 'Orieux, Etienne'), 'N vs Dubuisson, Samuel ?', 'missing elo -> "?"');
 
 console.log('pgn.test.ts OK');

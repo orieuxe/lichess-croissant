@@ -17,6 +17,8 @@ export interface ResolvedFideName {
   blitzElo?: number;
 }
 
+export type RatingKind = 'standardElo' | 'rapidElo' | 'blitzElo';
+
 export async function searchFidePlayers(query: string): Promise<FideCandidate[]> {
   const res = await fetch(`https://lichess.org/api/fide/player?q=${encodeURIComponent(query)}`);
   if (!res.ok) return [];
