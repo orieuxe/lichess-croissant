@@ -39,8 +39,8 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
   };
 
   const insertGame = db.prepare(`
-    INSERT INTO Games (EventID, SiteID, Date, Round, WhiteID, WhiteElo, BlackID, BlackElo, Result, TimeControl)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO Games (EventID, SiteID, Date, Round, WhiteID, WhiteElo, BlackID, BlackElo, Result, TimeControl, WhiteMaterial, BlackMaterial)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
   `);
 
   for (const g of pgn) {
