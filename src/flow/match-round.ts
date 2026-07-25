@@ -280,7 +280,7 @@ export async function matchRound(
   let games = initialGames;
 
   while (true) {
-    const answer = (await ask('Partie FIDE officielle ? [o/n] ')).trim().toLowerCase();
+    const answer = (await ask('Partie FIDE officielle ? [O/n] ')).trim().toLowerCase();
     if (answer === 'n') {
       // mode manuel inchangé
       const { rounds, category, ratingKind } = await runManualMode(games, ask);
@@ -290,7 +290,8 @@ export async function matchRound(
       const includedIndices = games.map((_, i) => i);
       return { match: { fiche, ffeUrl: '', rounds, ownElo: '', includedIndices, ratingKind, category }, filename, games };
     }
-    if (answer !== 'o') continue;
+    // vide ou 'o'/'oui' → flow grandroque
+    if (answer !== '' && answer !== 'o' && answer !== 'oui') continue;
 
     // flow grandroque — fetch (réseau), puis matching (local)
     let slug: string | null;
