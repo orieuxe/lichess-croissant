@@ -61,14 +61,15 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
 
     const siteId = resolveSite(site);
 
-    const round = getTag(g, 'Round') ?? '?';
+    const roundTag = getTag(g, 'Round') ?? '?';
+    const roundVal = /^\d+$/.test(roundTag) ? parseInt(roundTag, 10) : roundTag;
     const date = getTag(g, 'Date') ?? getTag(g, 'UTCDate')?.replace(/\./g, '-') ?? null;
 
     insertGame.run(
       eventId,
       siteId,
       date || '????.??.??',
-      round,
+      roundVal,
       whiteId,
       whiteElo ? parseInt(whiteElo, 10) || null : 0,
       blackId,
