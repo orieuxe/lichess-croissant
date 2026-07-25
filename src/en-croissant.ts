@@ -79,6 +79,14 @@ export function syncToDb(pgnPath: string, dbPath: string): number {
     inserted++;
   }
 
+  // en-croissant caches counts in the Info table — update them
+  if (inserted > 0) {
+    db.prepare('UPDATE Info SET Value = (SELECT COUNT(*) FROM Games) WHERE Name = \'GameCount\'').run();
+    db.prepare('UPDATE Info SET Value = (SELECT COUNT(*) FROM Players) WHERE Name = \'PlayerCount\'').run();
+    db.prepare('UPDATE Info SET Value = (SELECT COUNT(*) FROM Events) WHERE Name = \'EventCount\'').run();
+    db.prepare('UPDATE Info SET Value = (SELECT COUNT(*) FROM Sites) WHERE Name = \'SiteCount\'').run();
+  }
+
   db.close();
   return inserted;
 }
