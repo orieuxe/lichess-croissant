@@ -24,8 +24,7 @@ export function commitGameData(filename: string, studyName: string): boolean {
     execFileSync('git', ['commit', '-m', `feat: add ${studyName} games`]);
     console.log('Commit git créé (données seulement).');
     return true;
-  }
-  catch (err) {
+  } catch (err) {
     console.warn(`git commit sauté (${(err as Error).message.split('\n')[0]})`);
     return false;
   }
@@ -35,8 +34,7 @@ export function pushGithub(): void {
   try {
     execFileSync('git', ['push']);
     console.log('Poussé sur github.');
-  }
-  catch (err) {
+  } catch (err) {
     console.warn(`git push échoué (${(err as Error).message.split('\n')[0]})`);
   }
 }

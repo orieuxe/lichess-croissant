@@ -80,7 +80,7 @@ export async function matchRound(
   let games = initialGames;
 
   while (true) {
-    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel/skip) : ');
+    const ffeUrlAnswer = await ask('Lien fiche FFE ou id du tournoi (vide = mode manuel) : ');
 
     let fiche: FicheTournoi;
     let ffeUrl = '';
@@ -90,11 +90,9 @@ export async function matchRound(
     let manualCategory: Category | null = null;
 
     if (!ffeUrlAnswer.trim()) {
-      const manual = await ask(
-        'Pas de lien FFE — mode manuel (parties non officielles, sans fiche FFE) ? [O/n] ',
-      );
-      if (manual.trim().toLowerCase().startsWith('n')) return { match: null, filename, games };
-
+      // pas de deuxième confirmation ici — le "n" final à "Sauvegarder ?"
+      // couvre déjà le cas "en fait j'annule tout", pas besoin d'y ajouter
+      // une porte de sortie ici.
       ({ category: manualCategory, ratingKind } = await askCadenceKind(ask));
 
       fiche = {
@@ -114,8 +112,7 @@ export async function matchRound(
         let opponentElo: string | null = null;
         if (parsed) {
           ({ color, opponentName, opponentElo } = parsed);
-        }
-        else {
+        } else {
           const colorAnswer = await ask(
             `Partie ${i + 1} (${chapterName || previewMoves(g, 10)}) — tu jouais Blanc ou Noir ? [b/n] `,
           );
@@ -123,8 +120,7 @@ export async function matchRound(
         }
         rounds.push({ round: i + 1, color, result: null, opponentName, opponentElo });
       }
-    }
-    else {
+    } else {
       const raw = ffeUrlAnswer.trim();
       ffeUrl = /^\d+$/.test(raw)
         ? `https://www.echecs.asso.fr/FicheTournoi.aspx?Ref=${raw}`
@@ -134,8 +130,7 @@ export async function matchRound(
 
       if (fiche.resultsLinks.Ga) {
         ({ ownElo, rounds } = await fetchRounds(fiche.resultsLinks.Ga, ffeMatchName));
-      }
-      else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
+      } else if (fiche.resultsLinks.Pairing && fiche.resultsLinks.Berger) {
         // closed/round-robin tournament: no Grille Américaine, same data lives
         // across the Pairing (round-by-round) and Berger (name→Elo) pages.
         ({ ownElo, rounds } = await fetchClosedRounds(
@@ -143,8 +138,7 @@ export async function matchRound(
           fiche.resultsLinks.Berger,
           ffeMatchName,
         ));
-      }
-      else {
+      } else {
         console.warn(
           `ALERTE: pas de "Grille Américaine" ni de "Pairing"+"Berger" pour ce tournoi (formats dispo: ${Object.keys(fiche.resultsLinks).join(', ')}) — enrichissement rondes/adversaires non supporté.`,
         );

@@ -40,8 +40,7 @@ export async function pushChapters(
     try {
       await updateChapterTags(studyId, chapterId, tags);
       console.log(`  ${chapterId} (${title}) mis à jour`);
-    }
-    catch (err) {
+    } catch (err) {
       console.warn(`  ${chapterId} (${title}) échec: ${(err as Error).message}`);
     }
   }

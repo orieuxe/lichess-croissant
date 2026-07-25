@@ -49,8 +49,7 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
       if (r.result) {
         const ffeResult = resultFromFfe(r.result, ourSide);
         if (!currentResult || currentResult === '*') g = setTag(g, 'Result', ffeResult);
-      }
-      else if (!currentResult || currentResult === '*') {
+      } else if (!currentResult || currentResult === '*') {
         const manual = await cb.askResult(`${r.round} - ${r.color}/${r.opponentName ?? '?'}`);
         g = setTag(g, 'Result', resultFromFfe(manual, ourSide));
       }
@@ -66,8 +65,7 @@ export async function enrichGames(params: EnrichParams, cb: EnrichCallbacks): Pr
             opponentNameCache.set(r.opponentName, await cb.resolveFideName(r.opponentName, cb.askFideId));
           }
           opponent = opponentNameCache.get(r.opponentName)!;
-        }
-        else {
+        } else {
           opponent = await cb.askOpponentFideId();
         }
       }

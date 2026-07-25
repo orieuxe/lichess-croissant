@@ -8,7 +8,7 @@ export default tseslint.config(
   {
     plugins: { '@stylistic': stylistic },
     rules: {
-      ...stylistic.configs.customize({ quotes: 'single', semi: true }).rules,
+      ...stylistic.configs.customize({ quotes: 'single', semi: true, braceStyle: '1tbs' }).rules,
     },
   },
   {

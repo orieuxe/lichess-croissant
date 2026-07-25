@@ -64,8 +64,7 @@ export async function resolveFideById(id: string): Promise<ResolvedFideName | nu
       rapidElo: player.rapid,
       blitzElo: player.blitz,
     };
-  }
-  catch {
+  } catch {
     return null;
   }
 }
@@ -114,8 +113,7 @@ export async function resolveFideName(
         blitzElo: matched.blitz,
       };
     }
-  }
-  catch {
+  } catch {
     // network hiccup: fall through to asking for a manual FIDE id
   }
 

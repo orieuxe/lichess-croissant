@@ -108,14 +108,14 @@ async function main() {
 
     const eventAnswer = await ask(
       ffeUrl
-        ? `Event (vide = titre FFE "${fiche.title}", "s" = nom study "${study.name}", ou texte libre) : `
+        ? `Event (vide = nom study "${study.name}", "f" = titre FFE "${fiche.title}", ou texte libre) : `
         : `Event (vide = "${fiche.title}", ou texte libre) : `,
     );
     const eventValue
       = eventAnswer.trim() === ''
-        ? fiche.title
-        : ffeUrl && eventAnswer.trim().toLowerCase() === 's'
-          ? study.name
+        ? (ffeUrl ? study.name : fiche.title)
+        : ffeUrl && eventAnswer.trim().toLowerCase() === 'f'
+          ? fiche.title
           : eventAnswer.trim();
 
     const enrichedGames = await enrichGames(
@@ -158,13 +158,11 @@ async function main() {
     );
     if (push.trim().toLowerCase().startsWith('n')) {
       console.log('Rien poussé — pense à push toi-même (lichess + github) après tes modifs.');
-    }
-    else {
+    } else {
       await pushChapters(study.id, enrichedGames, includedIndices, ffeUrl, our.name);
       if (committed) pushGithub();
     }
-  }
-  else {
+  } else {
     console.log(
       'Pas de lien FFE, rien de sauvegardé — study pas marquée comme téléchargée, remets le lien FFE au prochain lancement.',
     );
