@@ -113,6 +113,33 @@ async function runManualMode(
 // matches by competition_title (inexact — the same title appears across
 // multiple seasons/divisions, but the user picked a specific one from the
 // list which includes year, so in practice this is correct).
+// Build a RoundResult from a matched ProfileGame, pre-tagging the opponent's
+// FideId on the PGN string. Caller decides whether to set per-round event.
+export function buildRoundFromMatch(
+  game: string,
+  pg: ProfileGame,
+  ourName: string,
+  event?: string,
+): { game: string; round: RoundResult } {
+  const o = ourSideOf(pg, ourName);
+  const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
+  if (o.opponentFideId) {
+    const oppSide = color === 'B' ? 'Black' : 'White';
+    game = setTag(game, `${oppSide}FideId`, String(o.opponentFideId));
+  }
+  return {
+    game,
+    round: {
+      round: pg.round_number,
+      color,
+      result: resultRelativeToUs(pg.result, o.ourSide),
+      opponentName: o.opponentName,
+      opponentElo: o.opponentElo !== null ? String(o.opponentElo) : null,
+      event,
+    },
+  };
+}
+
 // Single tournament selected: chapters are in the same order as the
 // filtered grandroque matches — positional pairing, no name lookup needed.
 export function positionalMatch(
@@ -124,21 +151,9 @@ export function positionalMatch(
   const includedIndices: number[] = [];
   const sorted = [...filtered].sort((a, b) => a.round_number - b.round_number);
   for (let i = 0; i < Math.min(games.length, sorted.length); i++) {
-    const pg = sorted[i];
-    const o = ourSideOf(pg, ourName);
-    const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
-    if (o.opponentFideId) {
-      const oppSide = color === 'B' ? 'Black' : 'White';
-      games[i] = setTag(games[i], `${oppSide}FideId`, String(o.opponentFideId));
-    }
-    rounds.push({
-      round: pg.round_number,
-      color,
-      result: resultRelativeToUs(pg.result, o.ourSide),
-      opponentName: o.opponentName,
-      opponentElo: o.opponentElo !== null ? String(o.opponentElo) : null,
-      // pas de event: ici — single-tournament, l'Event partagé (study name) suffit
-    });
+    const { game, round } = buildRoundFromMatch(games[i], sorted[i], ourName);
+    games[i] = game;
+    rounds.push(round);
     includedIndices.push(i);
   }
   return { rounds, includedIndices };
@@ -171,20 +186,9 @@ async function nameBasedMatch(
     }
 
     usedIds.add(pg.id);
-    const o = ourSideOf(pg, ourName);
-    const color: 'B' | 'N' = o.ourSide === 'White' ? 'B' : 'N';
-    if (o.opponentFideId) {
-      const oppSide = color === 'B' ? 'Black' : 'White';
-      games[i] = setTag(games[i], `${oppSide}FideId`, String(o.opponentFideId));
-    }
-    rounds.push({
-      round: pg.round_number,
-      color,
-      result: resultRelativeToUs(pg.result, o.ourSide),
-      opponentName: o.opponentName,
-      opponentElo: o.opponentElo !== null ? String(o.opponentElo) : null,
-      event: pg.competition_title,
-    });
+    const { game: updated, round } = buildRoundFromMatch(games[i], pg, ourName, pg.competition_title);
+    games[i] = updated;
+    rounds.push(round);
     includedIndices.push(i);
   }
   return { rounds, includedIndices, games };

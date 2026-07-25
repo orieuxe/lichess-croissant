@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint, groupCompetitions, filterGamesByKeys, positionalMatch } from './match-round.ts';
+import { parseManualChapterTitle, parseRoundNumbers, parseExcludedIndices, chapterDateHint, groupCompetitions, filterGamesByKeys, positionalMatch, buildRoundFromMatch } from './match-round.ts';
 import type { ProfileGame } from '../grandroque.ts';
 
 const game = (overrides: Partial<ProfileGame> = {}): ProfileGame => ({
@@ -88,6 +88,28 @@ const game = (overrides: Partial<ProfileGame> = {}): ProfileGame => ({
   const pgnGames = ['[ChapterName "B vs Opponent"]\n\n1. e4 *'];
   positionalMatch(pgnGames, [game({ black_fide_id: 12345 })], 'Etienne ORIEUX');
   assert.ok(pgnGames[0].includes('[BlackFideId "12345"]'), 'opponent FideId pre-tagged on the PGN');
+}
+
+// --- buildRoundFromMatch ---
+{
+  const pg = game({ black_fide_id: 12345 });
+  const { game: updated, round } = buildRoundFromMatch('[ChapterName "B vs Opponent"]\n\n1. e4 *', pg, 'Etienne ORIEUX');
+  assert.equal(round.round, 1);
+  assert.equal(round.color, 'B');
+  assert.equal(round.result, '+', '1-0 as White -> +');
+  assert.equal(round.event, undefined, 'no event arg -> undefined');
+  assert.ok(updated.includes('[BlackFideId "12345"]'), 'FideId pre-tagged');
+}
+{
+  const { round } = buildRoundFromMatch('[Event "x"]\n\n1. e4 *', game({ black_fide_id: null }), 'Etienne ORIEUX', 'Coupe de France');
+  assert.equal(round.event, 'Coupe de France');
+}
+{
+  const pg = game({ white_player_name: 'A', black_player_name: 'Etienne ORIEUX', white_elo: 2200, black_elo: 2272, result: '0-1' });
+  const { round } = buildRoundFromMatch('[]\n\n1. e4 *', pg, 'Etienne ORIEUX');
+  assert.equal(round.color, 'N');
+  assert.equal(round.result, '+', '0-1 as Black -> + (we won)');
+  assert.equal(round.opponentName, 'A');
 }
 
 console.log('match-round.test.ts OK');
